@@ -98,7 +98,7 @@ export function ContrattiPage() {
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p)
         const tc = await page.getTextContent()
-        testo += tc.items.map((i: { str?: string }) => i.str ?? '').join(' ') + '\n'
+        testo += tc.items.map((i) => ('str' in i ? i.str ?? '' : '')).join(' ') + '\n'
       }
 
       const result = await ingestContratto(contratto.id, tenant.id, testo)

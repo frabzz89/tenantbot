@@ -47,7 +47,7 @@ export function useAuth() {
       .single()
       .then(({ data }) => {
         if (data) {
-          const t = data.tenant as TenantInfo
+          const t = data.tenant as unknown as TenantInfo
           setTenant(t)
           setRuolo(data.ruolo as 'admin' | 'membro')
         }

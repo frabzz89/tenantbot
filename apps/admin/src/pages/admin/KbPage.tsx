@@ -84,7 +84,7 @@ export function KbPage() {
           for (let p = 1; p <= pdf.numPages; p++) {
             const page = await pdf.getPage(p)
             const tc = await page.getTextContent()
-            t += tc.items.map((i: { str?: string }) => i.str ?? '').join(' ') + '\n'
+            t += tc.items.map((i) => ('str' in i ? i.str ?? '' : '')).join(' ') + '\n'
           }
           testo = t
         }
