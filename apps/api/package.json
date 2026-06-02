@@ -9,9 +9,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
     "@tenantbot/core": "workspace:*",
-    "@tenantbot/db": "workspace:*"
+    "@tenantbot/db": "workspace:*",
+    "stripe": "^17.7.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@vercel/node": "^5.1.7",
     "typescript": "^5.8.3"
   }

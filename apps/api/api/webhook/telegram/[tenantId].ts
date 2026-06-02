@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const adapter = new TelegramAdapter(botConfig)
 
-  if (!adapter.validateWebhook(req.headers as Record<string, string | undefined>, '')) {
+  if (!adapter.validateWebhook(req.headers as Record<string, string | undefined>)) {
     return res.status(403).end()
   }
 
@@ -60,3 +60,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).end()
 }
+
