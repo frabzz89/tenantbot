@@ -1,4 +1,6 @@
 {
+  "buildCommand": "echo 'no build'",
+  "outputDirectory": ".",
   "functions": {
     "api/webhook/**/*.ts": { "maxDuration": 30 },
     "api/ingest/**/*.ts": { "maxDuration": 60 },
