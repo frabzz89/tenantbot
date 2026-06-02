@@ -1,13 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { BotEngine, WhatsAppAdapter } from '@tenantbot/core'
-import { loadBotConfig, makeSupabase } from '../../_lib/supabase'
+import { loadBotConfig, makeSupabase } from '../../../_lib/supabase'
 
-// WhatsApp richiede verifica webhook GET al momento del subscribe
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const tenantId = req.query.tenantId as string
   if (!tenantId) return res.status(400).json({ error: 'tenantId mancante' })
 
-  // ─── GET: verifica webhook Meta ───────────────────────────────────────────
   if (req.method === 'GET') {
     const mode = req.query['hub.mode']
     const challenge = req.query['hub.challenge']
@@ -22,7 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).end()
   }
 
-  // ─── POST: messaggio in ingresso ──────────────────────────────────────────
   if (req.method !== 'POST') return res.status(405).end()
 
   const config = await loadBotConfig(tenantId, 'whatsapp')
@@ -34,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const botConfig = {
     tenantId: config.tenant_id,
     canale: 'whatsapp' as const,
-    botToken: config.bot_token,        // = phone_number_id
+    botToken: config.bot_token,
     webhookSecret: config.webhook_secret,
     apiSecret: config.api_secret,
     adminChatId: config.admin_chat_id,
@@ -46,7 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const adapter = new WhatsAppAdapter(botConfig)
 
-  // Verifica firma HMAC-SHA256
   const rawBody = JSON.stringify(req.body)
   if (!adapter.validateWebhook(req.headers as Record<string, string | undefined>, rawBody)) {
     return res.status(403).end()
@@ -68,7 +64,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adminEmail: process.env.RESEND_ADMIN_EMAIL ?? '',
     })
 
-    // Il recipient per WhatsApp è il numero del mittente (senza il +)
     await engine.handleMessage(message, message.senderId)
   } catch (err) {
     console.error(`[wa-webhook] tenant=${tenantId} error:`, err)

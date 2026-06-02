@@ -1,6 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { TelegramAdapter } from '@tenantbot/core'
-import { loadBotConfig } from '../_lib/supabase'
+import { loadBotConfig } from '../../_lib/supabase'
 
 // GET /api/setup/telegram?tenant_id=xxx&secret=INGEST_SECRET
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -37,3 +37,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({ ok: true, webhookUrl, webhookInfo })
 }
+
+

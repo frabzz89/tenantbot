@@ -1,6 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { BotEngine, TelegramAdapter } from '@tenantbot/core'
-import { loadBotConfig, makeSupabase } from '../../_lib/supabase'
+import { loadBotConfig, makeSupabase } from '../../../_lib/supabase'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const config = await loadBotConfig(tenantId, 'telegram')
   if (!config) {
     console.warn(`[telegram-webhook] config non trovata per tenant=${tenantId}`)
-    return res.status(200).end() // rispondo 200 a Telegram anche senza config
+    return res.status(200).end()
   }
 
   const botConfig = {
@@ -29,7 +29,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const adapter = new TelegramAdapter(botConfig)
 
-  // Verifica secret token
   if (!adapter.validateWebhook(req.headers as Record<string, string | undefined>, '')) {
     return res.status(403).end()
   }

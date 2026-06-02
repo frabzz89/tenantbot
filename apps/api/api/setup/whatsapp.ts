@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { loadBotConfig } from '../_lib/supabase'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { loadBotConfig } from '../../_lib/supabase'
 
 // GET /api/setup/whatsapp?tenant_id=xxx&secret=INGEST_SECRET
 // Istruzioni: il webhook WhatsApp va configurato manualmente nella Meta Business dashboard.
@@ -22,9 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     ok: true,
     istruzioni: [
-      '1. Accedi a Meta Business Dashboard → WhatsApp → Configurazione → Webhook',
+      '1. Accedi a Meta Business Dashboard â†’ WhatsApp â†’ Configurazione â†’ Webhook',
       `2. Imposta l'URL webhook: ${webhookUrl}`,
-      `3. Imposta il Token di verifica: ${config.webhook_secret ?? '(non impostato — aggiungi webhook_secret in bot_configurazioni)'}`,
+      `3. Imposta il Token di verifica: ${config.webhook_secret ?? '(non impostato â€” aggiungi webhook_secret in bot_configurazioni)'}`,
       '4. Iscriviti agli eventi: messages, message_deliveries, messaging_postbacks',
     ],
     webhookUrl,
@@ -32,3 +32,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     wabaId: config.waba_id,
   })
 }
+
+

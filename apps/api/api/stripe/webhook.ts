@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { makeSupabase } from '../_lib/supabase'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { makeSupabase } from '../../_lib/supabase'
 
 // POST /api/stripe/webhook
 // Gestisce eventi Stripe: customer.subscription.created/updated/deleted
@@ -97,3 +97,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({ received: true })
 }
+
+

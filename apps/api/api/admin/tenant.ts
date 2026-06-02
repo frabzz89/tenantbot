@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { makeSupabase } from '../_lib/supabase'
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { makeSupabase } from '../../_lib/supabase'
 
 // POST /api/admin/tenant
 // Crea un tenant dopo la registrazione utente (chiamato dal frontend dopo signup Supabase Auth)
@@ -41,3 +41,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: msg })
   }
 }
+
+

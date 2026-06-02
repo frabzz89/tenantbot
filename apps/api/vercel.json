@@ -1,9 +1,9 @@
 {
   "functions": {
-    "webhook/**/*.ts": { "maxDuration": 30 },
-    "ingest/**/*.ts": { "maxDuration": 60 },
-    "stripe/**/*.ts": { "maxDuration": 15 },
-    "setup/**/*.ts": { "maxDuration": 15 },
-    "admin/**/*.ts": { "maxDuration": 15 }
+    "api/webhook/**/*.ts": { "maxDuration": 30 },
+    "api/ingest/**/*.ts": { "maxDuration": 60 },
+    "api/stripe/**/*.ts": { "maxDuration": 15 },
+    "api/setup/**/*.ts": { "maxDuration": 15 },
+    "api/admin/**/*.ts": { "maxDuration": 15 }
   }
 }
