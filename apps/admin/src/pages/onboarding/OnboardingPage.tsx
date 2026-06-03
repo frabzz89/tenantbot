@@ -112,9 +112,13 @@ export function OnboardingPage() {
 
       // 2. Register webhook automatically
       setLoadingStatus('Attivazione webhook...')
-      const setupRes = await fetch(
-        `${API_URL}/api/setup/telegram?tenant_id=${tenantId}&secret=${INGEST_SECRET}`
-      )
+      const setupUrl = `${API_URL}/api/setup/telegram?tenant_id=${tenantId}&secret=${INGEST_SECRET}`
+      let setupRes: Response
+      try {
+        setupRes = await fetch(setupUrl)
+      } catch {
+        throw new Error(`Impossibile raggiungere l'API (${API_URL || 'URL non configurata'}). Verifica VITE_API_URL nelle env di Vercel.`)
+      }
       const setupData = await setupRes.json()
       if (!setupData.ok) throw new Error('Errore webhook: ' + (setupData.error ?? 'sconosciuto'))
 
