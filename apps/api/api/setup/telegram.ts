@@ -1,9 +1,13 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { TelegramAdapter } from '@tenantbot/core'
 import { loadBotConfig } from '../../_lib/supabase'
+import { handleOptions, setCorsHeaders } from '../../_lib/cors'
 
 // GET /api/setup/telegram?tenant_id=xxx&secret=INGEST_SECRET
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleOptions(req, res)) return
+  setCorsHeaders(res)
+
   const ingestSecret = process.env.INGEST_SECRET
   if (ingestSecret && req.query.secret !== ingestSecret) {
     return res.status(403).json({ error: 'Unauthorized' })
