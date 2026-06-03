@@ -1,10 +1,13 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { ingestContratto } from '@tenantbot/core'
 import { makeSupabase } from '../../_lib/supabase'
+import { handleOptions, setCorsHeaders } from '../../_lib/cors'
 
 export const config = { maxDuration: 60 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleOptions(req, res)) return
+  setCorsHeaders(res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const secret = process.env.INGEST_SECRET

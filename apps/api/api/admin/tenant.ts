@@ -1,9 +1,12 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { makeSupabase } from '../../_lib/supabase'
+import { handleOptions, setCorsHeaders } from '../../_lib/cors'
 
 // POST /api/admin/tenant
 // Crea un tenant dopo la registrazione utente (chiamato dal frontend dopo signup Supabase Auth)
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handleOptions(req, res)) return
+  setCorsHeaders(res)
   if (req.method !== 'POST') return res.status(405).end()
 
   const { user_id, nome, email } = req.body as {

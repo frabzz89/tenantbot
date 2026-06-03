@@ -16,24 +16,27 @@ export function SignupPage() {
     setError('')
     setLoading(true)
 
-    // 1. Crea utente Supabase Auth
-    const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password })
-    if (authErr || !authData.user) {
-      setError(authErr?.message ?? 'Errore registrazione')
-      setLoading(false)
-      return
-    }
+    try {
+      // 1. Crea utente Supabase Auth
+      const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password })
+      if (authErr || !authData.user) {
+        setError(authErr?.message ?? 'Errore registrazione')
+        return
+      }
 
-    // 2. Crea tenant + collega utente come admin
-    const result = await createTenant(authData.user.id, nome, email)
-    if (!result.ok) {
-      setError(result.error ?? 'Errore creazione account')
-      setLoading(false)
-      return
-    }
+      // 2. Crea tenant + collega utente come admin
+      const result = await createTenant(authData.user.id, nome, email)
+      if (!result.ok) {
+        setError(result.error ?? 'Errore creazione account')
+        return
+      }
 
-    setLoading(false)
-    navigate('/onboarding')
+      navigate('/onboarding')
+    } catch (err) {
+      setError('Errore di rete. Riprova.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
