@@ -31,7 +31,7 @@ export function SignupPage() {
         return
       }
 
-      navigate('/onboarding')
+      navigate('/onboarding', { state: { tenant_id: result.tenant_id } })
     } catch (err) {
       setError('Errore di rete. Riprova.')
     } finally {

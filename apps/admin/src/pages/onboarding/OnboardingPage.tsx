@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
@@ -7,8 +7,12 @@ import { toast } from 'sonner'
 type Step = 1 | 2 | 3 | 4
 
 export function OnboardingPage() {
-  const { tenant, user } = useAuth()
+  const { tenant, user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Fallback: tenant_id passed via router state right after signup
+  const locationTenantId = (location.state as { tenant_id?: string } | null)?.tenant_id
+  const tenantId = tenant?.id ?? locationTenantId
   const [step, setStep] = useState<Step>(1)
 
   // Step 2 — Prima proprietà
@@ -29,34 +33,39 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false)
 
   async function savePropriety() {
-    if (!tenant || !nomePropriety) return
+    if (!nomePropriety) return
+    if (!tenantId) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
     setLoading(true)
-    await supabase.from('proprieta').insert({ tenant_id: tenant.id, nome: nomePropriety, indirizzo: indirizzoPropriety, citta: cittaPropriety, tipo: 'residenziale', attivo: true })
+    const { error } = await supabase.from('proprieta').insert({ tenant_id: tenantId, nome: nomePropriety, indirizzo: indirizzoPropriety, citta: cittaPropriety, tipo: 'residenziale', attivo: true })
     setLoading(false)
+    if (error) { toast.error('Errore salvataggio: ' + error.message); return }
     setStep(3)
   }
 
   async function saveBotConfig() {
-    if (!tenant || !botToken) return
+    if (!botToken) return
+    if (!tenantId) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
     setLoading(true)
-    await supabase.from('bot_configurazioni').upsert({
-      tenant_id: tenant.id,
+    const { error } = await supabase.from('bot_configurazioni').upsert({
+      tenant_id: tenantId,
       canale,
       bot_token: botToken,
       webhook_secret: webhookSecret || null,
-      nome_bot: tenant.nome,
+      nome_bot: tenant?.nome ?? 'TenantBot',
       lingua_default: 'it',
       attivo: true,
     }, { onConflict: 'tenant_id,canale' })
     setLoading(false)
+    if (error) { toast.error('Errore salvataggio: ' + error.message); return }
     setStep(4)
   }
 
   async function saveInquilino() {
-    if (!tenant || !nomeInq || !cognomeInq) return
+    if (!nomeInq || !cognomeInq) return
+    if (!tenantId) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
     setLoading(true)
-    await supabase.from('inquilini').insert({
-      tenant_id: tenant.id,
+    const { error } = await supabase.from('inquilini').insert({
+      tenant_id: tenantId,
       nome: nomeInq,
       cognome: cognomeInq,
       telefono_whatsapp: telefonoInq || null,
@@ -64,8 +73,17 @@ export function OnboardingPage() {
       attivo: true,
     })
     setLoading(false)
+    if (error) { toast.error('Errore salvataggio: ' + error.message); return }
     toast.success('Setup completato! Benvenuto in TenantBot 🎉')
     navigate('/dashboard')
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-sm text-gray-400">Caricamento account...</div>
+      </div>
+    )
   }
 
   return (
