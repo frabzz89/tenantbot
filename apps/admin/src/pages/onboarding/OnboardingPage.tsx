@@ -5,7 +5,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 
 const API_URL = import.meta.env.VITE_API_URL as string ?? ''
-const INGEST_SECRET = import.meta.env.VITE_INGEST_SECRET as string ?? ''
 
 type Step = 1 | 2 | 3 | 4
 
@@ -93,34 +92,25 @@ export function OnboardingPage() {
     if (!tenantId) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
     setLoading(true)
 
-    // Generate webhook secret automatically — user never sees this
-    const webhookSecret = crypto.randomUUID().replace(/-/g, '')
-
     try {
-      // 1. Save bot config to DB
-      setLoadingStatus('Salvataggio configurazione...')
-      const { error } = await supabase.from('bot_configurazioni').upsert({
-        tenant_id: tenantId,
-        canale: 'telegram',
-        bot_token: botToken.trim(),
-        webhook_secret: webhookSecret,
-        nome_bot: botInfo.first_name,
-        lingua_default: 'it',
-        attivo: true,
-      }, { onConflict: 'tenant_id,canale' })
-      if (error) throw new Error('Errore salvataggio: ' + error.message)
-
-      // 2. Register webhook automatically
-      setLoadingStatus('Attivazione webhook...')
-      const setupUrl = `${API_URL}/api/setup/telegram?tenant_id=${tenantId}&secret=${INGEST_SECRET}`
-      let setupRes: Response
+      // Single API call — saves config AND registers webhook server-side
+      setLoadingStatus('Attivazione bot...')
+      let res: Response
       try {
-        setupRes = await fetch(setupUrl)
+        res = await fetch(`${API_URL}/api/admin/activate-bot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            bot_token: botToken.trim(),
+            nome_bot: botInfo.first_name,
+          }),
+        })
       } catch {
         throw new Error(`Impossibile raggiungere l'API (${API_URL || 'URL non configurata'}). Verifica VITE_API_URL nelle env di Vercel.`)
       }
-      const setupData = await setupRes.json()
-      if (!setupData.ok) throw new Error('Errore webhook: ' + (setupData.error ?? 'sconosciuto'))
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error ?? 'Errore attivazione bot')
 
       setLoadingStatus('')
       toast.success(`Bot @${botInfo.username} attivato!`)
