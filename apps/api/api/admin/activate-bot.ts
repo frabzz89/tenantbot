@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { TelegramAdapter } from '@tenantbot/core'
+import { randomUUID } from 'crypto'
 import { makeSupabase } from '../../_lib/supabase'
 import { handleOptions, setCorsHeaders } from '../../_lib/cors'
 
 // POST /api/admin/activate-bot
-// Saves bot config to DB and registers the Telegram webhook — all server-side.
+// Saves Telegram bot config to DB and registers the webhook directly via Telegram API.
+// No @tenantbot/core import — avoids loading BotEngine and its heavy AI dependencies.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleOptions(req, res)) return
   setCorsHeaders(res)
@@ -20,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'tenant_id e bot_token richiesti' })
   }
 
-  const webhookSecret = crypto.randomUUID().replace(/-/g, '')
+  const webhookSecret = randomUUID().replace(/-/g, '')
 
   try {
     const supabase = makeSupabase()
@@ -38,29 +39,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (dbErr) return res.status(500).json({ error: 'Errore salvataggio: ' + dbErr.message })
 
-    // 2. Register Telegram webhook (server-side fetch — no CORS issues)
-    const botConfig = {
-      tenantId: tenant_id,
-      canale: 'telegram' as const,
-      botToken: bot_token,
-      webhookSecret,
-      apiSecret: null,
-      adminChatId: null,
-      accessToken: null,
-      linguaDefault: 'it',
-      nomeBot: nome_bot ?? 'TenantBot',
-      messaggioBenvenuto: null,
-    }
-
-    const adapter = new TelegramAdapter(botConfig)
-    // Use the API host for the webhook URL (this IS the API server)
+    // 2. Register webhook directly via Telegram Bot API (no adapter needed)
     const apiBase = `https://${req.headers.host}`
     const webhookUrl = `${apiBase}/api/webhook/telegram/${tenant_id}`
 
-    await adapter.setupWebhook(webhookUrl)
-    const webhookInfo = await adapter.getWebhookInfo()
+    const tgRes = await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: webhookUrl,
+        secret_token: webhookSecret,
+        allowed_updates: ['message', 'callback_query'],
+      }),
+    })
 
-    return res.status(200).json({ ok: true, webhookUrl, webhookInfo })
+    const tgData = await tgRes.json() as { ok: boolean; description?: string }
+    if (!tgData.ok) {
+      return res.status(500).json({ error: 'Telegram: ' + (tgData.description ?? 'errore sconosciuto') })
+    }
+
+    return res.status(200).json({ ok: true, webhookUrl })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[activate-bot]', msg)
