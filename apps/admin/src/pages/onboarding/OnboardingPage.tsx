@@ -151,15 +151,23 @@ export function OnboardingPage() {
               <h2 className="text-lg font-semibold mb-1">🤖 Configura il bot</h2>
               <p className="text-sm text-gray-500 mb-4">Scegli il canale e inserisci le credenziali.</p>
               <div className="flex gap-2 mb-4">
-                {(['telegram', 'whatsapp'] as const).map((c) => (
+                <button
+                  onClick={() => setCanale('telegram')}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${canale === 'telegram' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  ✈️ Telegram
+                </button>
+                <div className="flex-1 relative">
                   <button
-                    key={c}
-                    onClick={() => setCanale(c)}
-                    className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${canale === c ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                    disabled
+                    className="w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-400 cursor-not-allowed"
                   >
-                    {c === 'telegram' ? '✈️ Telegram' : '📱 WhatsApp'}
+                    📱 WhatsApp
                   </button>
-                ))}
+                  <span className="absolute -top-2 right-2 text-[10px] bg-brand-100 text-brand-700 rounded px-1.5 py-0.5 font-medium">
+                    Presto
+                  </span>
+                </div>
               </div>
               <div className="space-y-3">
                 {canale === 'telegram' ? (
