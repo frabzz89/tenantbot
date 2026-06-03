@@ -26,8 +26,13 @@ export function AdminLayout() {
     )
   }
 
-  if (!user || !tenant) {
+  if (!user) {
     navigate('/login')
+    return null
+  }
+
+  if (!tenant) {
+    navigate('/onboarding')
     return null
   }
 

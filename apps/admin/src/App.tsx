@@ -3,6 +3,8 @@ import { Toaster } from 'sonner'
 import { AdminLayout } from './components/AdminLayout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
 import { DashboardPage } from './pages/admin/DashboardPage'
 import { ProprietaPage } from './pages/admin/ProprietaPage'
@@ -20,6 +22,8 @@ export default function App() {
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
 
         {/* Admin (protected) */}

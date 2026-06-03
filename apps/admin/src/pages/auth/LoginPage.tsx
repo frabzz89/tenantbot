@@ -57,6 +57,11 @@ export function LoginPage() {
           >
             {loading ? 'Accesso...' : 'Accedi'}
           </button>
+          <div className="text-center">
+            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-brand-600 transition-colors">
+              Password dimenticata?
+            </Link>
+          </div>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-500">
