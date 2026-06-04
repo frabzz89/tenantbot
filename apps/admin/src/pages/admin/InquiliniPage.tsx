@@ -35,7 +35,7 @@ export function InquiliniPage() {
       supabase.from('proprieta').select('*').eq('attivo', true).order('nome'),
     ])
 
-    const assocs = (assocData ?? []) as AssocRow[]
+    const assocs = (assocData ?? []) as unknown as AssocRow[]
 
     const enriched: InquilinoRow[] = (inqData ?? []).map((inq) => {
       const mine = assocs.filter((a) => a.inquilino_id === inq.id)
