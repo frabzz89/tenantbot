@@ -89,6 +89,13 @@ export function InquiliniPage() {
     load()
   }
 
+  // ── unlink telegram ──────────────────────────────────────────────────────────
+
+  async function unlinkTelegram(id: string) {
+    await supabase.from('inquilini').update({ telegram_user_id: null }).eq('id', id)
+    load()
+  }
+
   // ── filter ───────────────────────────────────────────────────────────────────
 
   const filtered = items.filter((i) =>
@@ -141,9 +148,20 @@ export function InquiliniPage() {
                   <td className="px-4 py-3 text-gray-500">{i.telefono_whatsapp ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={i._unitaNome}>{i._unitaNome}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={i.telegram_user_id ? 'success' : 'warning'}>
-                      {i.telegram_user_id ? 'Collegato' : 'Non collegato'}
-                    </Badge>
+                    {i.telegram_user_id ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="success">Collegato</Badge>
+                        <button
+                          onClick={() => unlinkTelegram(i.id)}
+                          className="text-xs text-gray-400 hover:text-red-500 leading-none"
+                          title="Scollega Telegram"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <Badge variant="warning">Non collegato</Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={i.attivo ? 'success' : 'default'}>{i.attivo ? 'Attivo' : 'Inattivo'}</Badge>
@@ -237,9 +255,23 @@ export function InquiliniPage() {
               Inquilino attivo
             </label>
 
-            {dialog.telegram_user_id && (
-              <p className="mt-2 text-xs text-green-600">✅ Telegram collegato: {dialog.telegram_user_id}</p>
-            )}
+            {/* Telegram manual linking */}
+            <div className="mt-4">
+              <Field label="Telegram User ID (collegamento manuale)">
+                <input
+                  value={dialog.telegram_user_id ?? ''}
+                  onChange={(e) => setDialog({ ...dialog, telegram_user_id: e.target.value || null })}
+                  className={INPUT}
+                  placeholder="es. 123456789"
+                />
+              </Field>
+              <p className="mt-1 text-xs text-gray-400">
+                Per trovarlo: scrivi{' '}
+                <code className="bg-gray-100 px-1 rounded">/start</code>{' '}
+                a <strong>@userinfobot</strong> su Telegram.{' '}
+                Lascia vuoto per usare il collegamento automatico via numero di telefono.
+              </p>
+            </div>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
             <div className="mt-5 flex justify-end gap-2">
