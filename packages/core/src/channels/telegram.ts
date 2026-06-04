@@ -26,6 +26,7 @@ export class TelegramAdapter implements ChannelAdapter {
     const update = body as TgUpdate
     const msg = update?.message
     if (!msg) return null
+    if (!msg.from) return null  // anonymous group admin, channel post forwarded, etc.
 
     const senderId = String(msg.from.id)
     const text = msg.text

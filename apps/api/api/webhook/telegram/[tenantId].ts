@@ -18,66 +18,72 @@ async function sendFallback(botToken: string, chatId: string | number, text: str
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
 
+  // ── Respond 200 IMMEDIATELY — before any async work ──────────────────────
+  // Telegram marks the webhook as failed if it doesn't get a response within
+  // a few seconds. Responding here guarantees Telegram never sees a 500,
+  // regardless of what happens in the processing below.
+  res.status(200).end()
+
   const tenantId = req.query.tenantId as string
-  if (!tenantId) return res.status(400).end()
+  if (!tenantId) {
+    console.warn('[telegram-webhook] missing tenantId in URL')
+    return
+  }
 
-  // ── Load bot configuration ─────────────────────────────────────────────────
-  let config: Awaited<ReturnType<typeof loadBotConfig>>
+  let botToken: string | undefined
+  let chatIdForFallback: string | undefined
+
   try {
-    config = await loadBotConfig(tenantId, 'telegram')
-  } catch (err) {
-    console.error(`[telegram-webhook] loadBotConfig failed tenant=${tenantId}:`, err)
-    return res.status(200).end()
-  }
+    // ── Load bot configuration ───────────────────────────────────────────────
+    const config = await loadBotConfig(tenantId, 'telegram')
+    if (!config) {
+      console.warn(`[telegram-webhook] config non trovata per tenant=${tenantId}`)
+      return
+    }
+    botToken = config.bot_token
 
-  if (!config) {
-    console.warn(`[telegram-webhook] config non trovata per tenant=${tenantId}`)
-    return res.status(200).end()
-  }
-
-  // ── Webhook secret validation ──────────────────────────────────────────────
-  // Log the actual header so we can diagnose mismatches in Vercel logs.
-  const secretHeader = req.headers['x-telegram-bot-api-secret-token']
-  if (config.webhook_secret) {
-    if (secretHeader !== config.webhook_secret) {
+    // ── Webhook secret validation ────────────────────────────────────────────
+    const secretHeader = req.headers['x-telegram-bot-api-secret-token']
+    if (config.webhook_secret && secretHeader !== config.webhook_secret) {
       console.warn(
         `[telegram-webhook] secret mismatch tenant=${tenantId} ` +
         `got=${JSON.stringify(secretHeader)} ` +
         `expected_prefix=${config.webhook_secret.slice(0, 6)}...`
       )
-      return res.status(403).end()
+      return
     }
-  }
 
-  // ── Parse the incoming update ──────────────────────────────────────────────
-  const botConfig = {
-    tenantId: config.tenant_id,
-    canale: 'telegram' as const,
-    botToken: config.bot_token,
-    webhookSecret: config.webhook_secret,
-    apiSecret: null,
-    adminChatId: config.admin_chat_id,
-    accessToken: null,
-    linguaDefault: config.lingua_default,
-    nomeBot: config.nome_bot,
-    messaggioBenvenuto: config.messaggio_benvenuto,
-  }
+    // ── Parse the incoming update ────────────────────────────────────────────
+    const botConfig = {
+      tenantId: config.tenant_id,
+      canale: 'telegram' as const,
+      botToken: config.bot_token,
+      webhookSecret: config.webhook_secret,
+      apiSecret: null,
+      adminChatId: config.admin_chat_id,
+      accessToken: null,
+      linguaDefault: config.lingua_default,
+      nomeBot: config.nome_bot,
+      messaggioBenvenuto: config.messaggio_benvenuto,
+    }
 
-  const adapter = new TelegramAdapter(botConfig)
-  const body = req.body
+    const adapter = new TelegramAdapter(botConfig)
+    const body = req.body
 
-  const chatId = adapter.extractChatId(body)
-  if (!chatId) return res.status(200).end()
+    const chatId = adapter.extractChatId(body)
+    if (!chatId) {
+      // Non-message update (callback_query, edited_message, etc.) — ignore silently
+      return
+    }
+    chatIdForFallback = chatId
 
-  const message = adapter.parseMessage(body)
-  if (!message) return res.status(200).end()
+    const message = adapter.parseMessage(body)
+    if (!message) {
+      // Message with no text/contact (photo, sticker, etc.) — ignore silently
+      return
+    }
 
-  // ── Run the engine — always respond 200 to Telegram ───────────────────────
-  // Telegram retries on non-200, which can flood the function.
-  // We respond 200 here and handle errors inside.
-  res.status(200).end()
-
-  try {
+    // ── Run the bot engine ───────────────────────────────────────────────────
     const supabase = makeSupabase()
     const engine = new BotEngine({
       supabase,
@@ -91,15 +97,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     await engine.handleMessage(message, chatId)
-  } catch (err) {
-    console.error(`[telegram-webhook] engine error tenant=${tenantId} chat=${chatId}:`, err)
 
-    // Send a fallback so the user knows something went wrong
-    // (instead of just staring at silence)
-    await sendFallback(
-      config.bot_token,
-      chatId,
-      'Si è verificato un errore interno. Riprova tra qualche minuto.'
-    )
+  } catch (err) {
+    console.error(`[telegram-webhook] unhandled error tenant=${tenantId}:`, err)
+
+    // Best-effort: tell the user something went wrong (if we have their chatId)
+    if (botToken && chatIdForFallback) {
+      await sendFallback(
+        botToken,
+        chatIdForFallback,
+        'Si è verificato un errore interno. Riprova tra qualche minuto.'
+      )
+    }
   }
 }
