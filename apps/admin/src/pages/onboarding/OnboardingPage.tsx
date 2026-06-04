@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { TelegramIcon, WhatsAppIcon } from '../../components/icons'
 import { toast } from 'sonner'
+import type { Proprieta } from '@tenantbot/db'
 
 const API_URL = import.meta.env.VITE_API_URL as string ?? ''
 
@@ -42,6 +44,8 @@ export function OnboardingPage() {
   const [nomeInq, setNomeInq] = useState('')
   const [cognomeInq, setCognomeInq] = useState('')
   const [telefonoInq, setTelefonoInq] = useState('')
+  const [propList, setPropList] = useState<Proprieta[]>([])
+  const [selectedPropIds, setSelectedPropIds] = useState<string[]>([])
 
   const [loading, setLoading] = useState(false)
 
@@ -66,6 +70,18 @@ export function OnboardingPage() {
       .catch(() => { /* silently ignore — user will see error when they click Avanti */ })
       .finally(() => { creatingTenantRef.current = false })
   }, [authLoading, tenantId, user])
+
+  // Load proprieta list when entering Step 4 (to associate the first tenant)
+  useEffect(() => {
+    if (step !== 4 || !tenantId) return
+    supabase.from('proprieta').select('*').eq('attivo', true).order('nome')
+      .then(({ data }) => {
+        const list = data ?? []
+        setPropList(list)
+        // Pre-select all properties (usually just 1 from step 2)
+        setSelectedPropIds(list.map((p) => p.id))
+      })
+  }, [step, tenantId])
 
   // Validate Telegram token in real-time (debounced)
   useEffect(() => {
@@ -151,21 +167,33 @@ export function OnboardingPage() {
 
   async function saveInquilino() {
     if (!nomeInq || !cognomeInq) return
-    if (!tenantId) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
+    const tid = tenantId
+    if (!tid) { toast.error('Sessione non trovata — ricarica la pagina (F5)'); return }
     setLoading(true)
-    const { error } = await supabase.from('inquilini').insert({
-      tenant_id: tenantId,
-      nome: nomeInq,
-      cognome: cognomeInq,
-      telefono_whatsapp: telefonoInq || null,
-      lingua: 'it',
-      attivo: true,
-    })
+
+    // 1. Create inquilino
+    const { data: inqData, error } = await supabase
+      .from('inquilini')
+      .insert({ tenant_id: tid, nome: nomeInq, cognome: cognomeInq, telefono_whatsapp: telefonoInq || null, lingua: 'it', attivo: true })
+      .select('id')
+      .single()
+
+    if (error || !inqData) {
+      setLoading(false)
+      toast.error('Errore salvataggio: ' + (error?.message ?? 'errore sconosciuto'))
+      return
+    }
+
+    // 2. Associate with selected properties (via junction table)
+    if (selectedPropIds.length > 0) {
+      await supabase.from('inquilino_proprieta').insert(
+        selectedPropIds.map((pid) => ({ tenant_id: tid, inquilino_id: inqData.id, proprieta_id: pid }))
+      )
+    }
+
     setLoading(false)
-    if (error) { toast.error('Errore salvataggio: ' + error.message); return }
     toast.success('Setup completato! Benvenuto in TenantBot 🎉')
-    // Hard reload instead of client-side navigate: forces useAuth to reinitialize
-    // from scratch so AdminLayout never sees tenant=null before the query completes.
+    // Hard reload: forces useAuth to reinitialize so AdminLayout never sees tenant=null
     window.location.replace('/dashboard')
   }
 
@@ -245,14 +273,14 @@ export function OnboardingPage() {
 
               {/* Channel selector */}
               <div className="flex gap-2 mb-4">
-                <button className="flex-1 rounded-lg border border-brand-500 bg-brand-50 py-2 text-sm font-medium text-brand-700">
-                  ✈️ Telegram
+                <button className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-brand-500 bg-brand-50 py-2 text-sm font-medium text-brand-700">
+                  <TelegramIcon size={18} /> Telegram
                 </button>
                 <div className="flex-1 relative">
-                  <button disabled className="w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-                    📱 WhatsApp
+                  <button disabled className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+                    <WhatsAppIcon size={18} /> WhatsApp
                   </button>
-                  <span className="absolute -top-2 right-2 text-[10px] bg-brand-100 text-brand-700 rounded px-1.5 py-0.5 font-medium">Presto</span>
+                  <span className="absolute -top-2 right-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">Presto</span>
                 </div>
               </div>
 
@@ -336,6 +364,31 @@ export function OnboardingPage() {
                 <Field label="Telefono (es. +39333...)">
                   <input value={telefonoInq} onChange={(e) => setTelefonoInq(e.target.value)} className={INPUT} placeholder="+39333..." />
                 </Field>
+
+                {/* Property association */}
+                {propList.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                      Proprietà associate
+                    </label>
+                    <div className="space-y-1.5">
+                      {propList.map((p) => (
+                        <label key={p.id} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer hover:bg-gray-50 select-none">
+                          <input
+                            type="checkbox"
+                            checked={selectedPropIds.includes(p.id)}
+                            onChange={() => setSelectedPropIds((prev) =>
+                              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                            )}
+                            className="accent-brand-600 h-4 w-4 shrink-0"
+                          />
+                          <span className="text-sm text-gray-800 font-medium">{p.nome}</span>
+                          {p.indirizzo && <span className="ml-auto text-xs text-gray-400">{p.indirizzo}</span>}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="mt-5 flex gap-2">
                 <button onClick={() => setStep(3)} className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Indietro</button>

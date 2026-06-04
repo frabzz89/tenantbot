@@ -188,6 +188,14 @@ export interface AvisoBroadcast {
   created_at: string
 }
 
+export interface InquilinoProprietaRow {
+  id: string
+  tenant_id: string
+  inquilino_id: string
+  proprieta_id: string
+  created_at: string
+}
+
 // Limiti per piano
 export const PIANO_LIMITI = {
   starter: { proprieta: 1, unita: 30, canali: ['telegram'] as CanaleBotType[] },

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '../../components/PageHeader'
 import { Badge } from '../../components/Badge'
+import { TelegramIcon, WhatsAppIcon } from '../../components/icons'
 import type { BotConfigurazione } from '@tenantbot/db'
 import { toast } from 'sonner'
 
@@ -62,15 +63,27 @@ export function BotConfigPage() {
       <div className="p-8 space-y-6">
         {(['telegram', 'whatsapp'] as const).map((canale) => {
           const config = configs.find((c) => c.canale === canale)
+          const isWhatsApp = canale === 'whatsapp'
+
           return (
-            <div key={canale} className="rounded-xl border border-gray-200 bg-white p-6">
+            <div key={canale} className={`rounded-xl border border-gray-200 bg-white p-6 ${isWhatsApp ? 'opacity-70' : ''}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{canale === 'telegram' ? '✈️' : '📱'}</span>
+                  {isWhatsApp
+                    ? <WhatsAppIcon size={36} />
+                    : <TelegramIcon size={36} />
+                  }
                   <div>
-                    <div className="font-semibold capitalize">{canale}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold capitalize">{canale}</span>
+                      {isWhatsApp && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide">
+                          Presto disponibile
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500">
-                      {canale === 'telegram' ? 'Telegram Bot API' : 'Meta WhatsApp Business Cloud API'}
+                      {isWhatsApp ? 'Meta WhatsApp Business Cloud API' : 'Telegram Bot API'}
                     </div>
                   </div>
                 </div>
@@ -78,39 +91,48 @@ export function BotConfigPage() {
                   <Badge variant={config?.attivo ? 'success' : 'default'}>
                     {config?.attivo ? 'Attivo' : 'Non configurato'}
                   </Badge>
-                  <button
-                    onClick={() => setEditing(config ?? { canale, attivo: false, nome_bot: 'TenantBot', lingua_default: 'it' })}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-                  >
-                    {config ? 'Modifica' : 'Configura'}
-                  </button>
-                  {config?.attivo && (
-                    <button
-                      onClick={() => setupWebhook(canale)}
-                      disabled={settingUp}
-                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                    >
-                      {settingUp ? 'Configurando...' : 'Setup Webhook'}
-                    </button>
+                  {!isWhatsApp && (
+                    <>
+                      <button
+                        onClick={() => setEditing(config ?? { canale, attivo: false, nome_bot: 'TenantBot', lingua_default: 'it' })}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+                      >
+                        {config ? 'Modifica' : 'Configura'}
+                      </button>
+                      {config?.attivo && (
+                        <button
+                          onClick={() => setupWebhook(canale)}
+                          disabled={settingUp}
+                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                        >
+                          {settingUp ? 'Configurando...' : 'Setup Webhook'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
 
-              {config && (
+              {config && !isWhatsApp && (
                 <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
                   <div><span className="font-medium">Nome bot:</span> {config.nome_bot}</div>
                   <div><span className="font-medium">Lingua:</span> {config.lingua_default}</div>
-                  {config.admin_chat_id && <div><span className="font-medium">Admin Chat ID:</span> {config.admin_chat_id}</div>}
-                  {canale === 'telegram' && <div><span className="font-medium">Token:</span> {config.bot_token ? '••••••••' + config.bot_token.slice(-6) : '—'}</div>}
-                  {canale === 'whatsapp' && <div><span className="font-medium">Phone Number ID:</span> {config.bot_token ?? '—'}</div>}
+                  {config.admin_chat_id && (
+                    <div><span className="font-medium">Admin Chat ID:</span> {config.admin_chat_id}</div>
+                  )}
+                  <div><span className="font-medium">Token:</span> {config.bot_token ? '••••••••' + config.bot_token.slice(-6) : '—'}</div>
                 </div>
               )}
 
-              {!config && (
+              {!config && !isWhatsApp && (
                 <div className="mt-2 text-sm text-gray-400">
-                  {canale === 'telegram'
-                    ? 'Crea un bot su @BotFather e incolla il token qui.'
-                    : 'Configura un numero WhatsApp Business in Meta Developer Console.'}
+                  Crea un bot su @BotFather e incolla il token qui.
+                </div>
+              )}
+
+              {isWhatsApp && (
+                <div className="mt-2 text-sm text-gray-400">
+                  Il supporto WhatsApp Business è in arrivo. Al lancio utilizzeremo un BSP (Business Solution Provider) per semplificare la configurazione.
                 </div>
               )}
             </div>
