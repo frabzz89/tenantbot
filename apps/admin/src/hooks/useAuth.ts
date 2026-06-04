@@ -16,11 +16,14 @@ export function useAuth() {
   const [tenant, setTenant] = useState<TenantInfo | null>(null)
   const [ruolo, setRuolo] = useState<'admin' | 'membro' | null>(null)
   const [loading, setLoading] = useState(true)
+  // Tracks whether getSession() has resolved — prevents premature loading=false
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setUser(data.session?.user ?? null)
+      setSessionChecked(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -32,6 +35,12 @@ export function useAuth() {
   }, [])
 
   useEffect(() => {
+    // Don't do anything until we know whether a session exists.
+    // Without this guard, the effect runs immediately with user=null
+    // and sets loading=false before getSession() resolves — causing
+    // AdminLayout to redirect before auth is confirmed.
+    if (!sessionChecked) return
+
     if (!user) {
       setTenant(null)
       setRuolo(null)
@@ -53,7 +62,7 @@ export function useAuth() {
         }
         setLoading(false)
       })
-  }, [user])
+  }, [user, sessionChecked])
 
   async function signOut() {
     await supabase.auth.signOut()

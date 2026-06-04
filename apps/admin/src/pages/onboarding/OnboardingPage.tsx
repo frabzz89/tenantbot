@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router'
+import { useLocation } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
@@ -15,10 +15,14 @@ interface TelegramBotInfo {
 
 export function OnboardingPage() {
   const { tenant, user, loading: authLoading } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const locationTenantId = (location.state as { tenant_id?: string } | null)?.tenant_id
-  const tenantId = tenant?.id ?? locationTenantId
+
+  // Auto-created tenant ID (fallback for accounts whose signup API call failed due to CORS)
+  const [autoTenantId, setAutoTenantId] = useState<string | null>(null)
+  const creatingTenantRef = useRef(false)
+
+  const tenantId = tenant?.id ?? locationTenantId ?? autoTenantId
   const [step, setStep] = useState<Step>(1)
 
   // Step 2 — Prima proprietà
@@ -40,6 +44,28 @@ export function OnboardingPage() {
   const [telefonoInq, setTelefonoInq] = useState('')
 
   const [loading, setLoading] = useState(false)
+
+  // Auto-create tenant if user is logged in but has no tenant record
+  // (handles accounts where the signup API call failed silently due to CORS)
+  useEffect(() => {
+    if (authLoading || tenantId || !user || creatingTenantRef.current) return
+    creatingTenantRef.current = true
+    fetch(`${API_URL}/api/admin/tenant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: user.id,
+        nome: user.email?.split('@')[0] ?? 'Il mio studio',
+        email: user.email ?? '',
+      }),
+    })
+      .then((r) => r.json())
+      .then((data: { ok?: boolean; tenant_id?: string }) => {
+        if (data.ok && data.tenant_id) setAutoTenantId(data.tenant_id)
+      })
+      .catch(() => { /* silently ignore — user will see error when they click Avanti */ })
+      .finally(() => { creatingTenantRef.current = false })
+  }, [authLoading, tenantId, user])
 
   // Validate Telegram token in real-time (debounced)
   useEffect(() => {
@@ -138,7 +164,9 @@ export function OnboardingPage() {
     setLoading(false)
     if (error) { toast.error('Errore salvataggio: ' + error.message); return }
     toast.success('Setup completato! Benvenuto in TenantBot 🎉')
-    navigate('/dashboard')
+    // Hard reload instead of client-side navigate: forces useAuth to reinitialize
+    // from scratch so AdminLayout never sees tenant=null before the query completes.
+    window.location.replace('/dashboard')
   }
 
   if (authLoading) {
