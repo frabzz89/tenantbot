@@ -12,7 +12,6 @@ export function BotConfigPage() {
   const [configs, setConfigs] = useState<BotConfigurazione[]>([])
   const [editing, setEditing] = useState<Partial<BotConfigurazione> | null>(null)
   const [saving, setSaving] = useState(false)
-  const [settingUp, setSettingUp] = useState(false)
   const [diagnosing, setDiagnosing] = useState(false)
   const [diagResult, setDiagResult] = useState<string | null>(null)
 
@@ -108,38 +107,6 @@ export function BotConfigPage() {
     }
   }
 
-  async function setupWebhook(canale: 'telegram' | 'whatsapp') {
-    if (!tenant) return
-    const config = configs.find(c => c.canale === canale)
-    if (!config?.bot_token) { toast.error('Salva prima il token del bot'); return }
-
-    setSettingUp(true)
-    const apiUrl = import.meta.env.VITE_API_URL as string ?? ''
-
-    try {
-      const res = await fetch(`${apiUrl}/api/admin/activate-bot`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenant_id: tenant.id,
-          bot_token: config.bot_token,
-          nome_bot: config.nome_bot,
-        }),
-      })
-      const data = await res.json() as { ok?: boolean; webhookUrl?: string; error?: string }
-      if (data.ok) {
-        toast.success(`Bot attivato! Webhook: ${data.webhookUrl}`)
-        setDiagResult(null)
-      } else {
-        toast.error(data.error ?? 'Errore attivazione bot')
-      }
-    } catch {
-      toast.error('Errore di rete')
-    } finally {
-      setSettingUp(false)
-    }
-  }
-
   return (
     <div>
       <PageHeader
@@ -187,22 +154,13 @@ export function BotConfigPage() {
                         {config ? 'Modifica' : 'Configura'}
                       </button>
                       {config?.attivo && (
-                        <>
-                          <button
-                            onClick={() => setupWebhook(canale)}
-                            disabled={settingUp}
-                            className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                          >
-                            {settingUp ? 'Configurando...' : 'Attiva bot'}
-                          </button>
-                          <button
-                            onClick={runDiagnostic}
-                            disabled={diagnosing}
-                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            {diagnosing ? '...' : '🔍 Diagnostica'}
-                          </button>
-                        </>
+                        <button
+                          onClick={runDiagnostic}
+                          disabled={diagnosing}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          {diagnosing ? '...' : '🔍 Diagnostica'}
+                        </button>
                       )}
                     </>
                   )}
