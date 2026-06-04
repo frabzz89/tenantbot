@@ -13,6 +13,7 @@ import { ContrattiPage } from './pages/admin/ContrattiPage'
 import { KbPage } from './pages/admin/KbPage'
 import { TicketPage } from './pages/admin/TicketPage'
 import { BotConfigPage } from './pages/admin/BotConfigPage'
+import { UnitaPage } from './pages/admin/UnitaPage'
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/properties" element={<ProprietaPage />} />
+          <Route path="/unita" element={<UnitaPage />} />
           <Route path="/inquilini" element={<InquiliniPage />} />
           <Route path="/contratti" element={<ContrattiPage />} />
           <Route path="/kb" element={<KbPage />} />

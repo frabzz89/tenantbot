@@ -13,6 +13,8 @@ export function BotConfigPage() {
   const [editing, setEditing] = useState<Partial<BotConfigurazione> | null>(null)
   const [saving, setSaving] = useState(false)
   const [settingUp, setSettingUp] = useState(false)
+  const [diagnosing, setDiagnosing] = useState(false)
+  const [diagResult, setDiagResult] = useState<string | null>(null)
 
   async function load() {
     if (!tenant) return
@@ -25,6 +27,45 @@ export function BotConfigPage() {
   async function save() {
     if (!editing || !tenant) return
     setSaving(true)
+
+    // For Telegram with a token: use activate-bot which saves + registers webhook in one step
+    if (editing.canale === 'telegram' && editing.bot_token) {
+      const apiUrl = import.meta.env.VITE_API_URL as string ?? ''
+      try {
+        const res = await fetch(`${apiUrl}/api/admin/activate-bot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id: tenant.id,
+            bot_token: editing.bot_token,
+            nome_bot: editing.nome_bot ?? 'TenantBot',
+          }),
+        })
+        const data = await res.json() as { ok?: boolean; webhookUrl?: string; error?: string }
+        setSaving(false)
+        if (!data.ok) { toast.error(data.error ?? 'Errore attivazione bot'); return }
+        // Also persist extra fields (admin_chat_id, messaggio_benvenuto, lingua) that activate-bot doesn't handle
+        if (editing.admin_chat_id !== undefined || editing.messaggio_benvenuto !== undefined || editing.lingua_default !== undefined) {
+          await supabase.from('bot_configurazioni')
+            .update({
+              admin_chat_id: editing.admin_chat_id ?? null,
+              messaggio_benvenuto: editing.messaggio_benvenuto ?? null,
+              lingua_default: editing.lingua_default ?? 'it',
+            })
+            .eq('tenant_id', tenant.id)
+            .eq('canale', 'telegram')
+        }
+        toast.success(`Bot attivato e webhook registrato ✅`)
+        setEditing(null); load()
+        return
+      } catch {
+        setSaving(false)
+        toast.error('Errore di rete')
+        return
+      }
+    }
+
+    // Fallback: direct Supabase upsert (WhatsApp or config-only edits)
     const { id, ...rest } = editing
     const payload = { ...rest, tenant_id: tenant.id }
     const { error } = id
@@ -36,20 +77,66 @@ export function BotConfigPage() {
     setEditing(null); load()
   }
 
+  async function runDiagnostic() {
+    if (!tenant) return
+    setDiagnosing(true)
+    setDiagResult(null)
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL as string ?? ''
+      const res = await fetch(`${apiUrl}/api/admin/bot-diagnostic?tenant_id=${tenant.id}`)
+      const data = await res.json() as {
+        db?: { attivo: boolean; nome_bot: string; bot_token_suffix: string | null; webhook_secret_prefix: string | null }
+        diagnosis?: { expectedWebhookUrl: string; registeredUrl: string | null; urlMatch: boolean; lastTelegramError: string | null; pendingUpdates: number | null; recommendation: string }
+      }
+      if (data.diagnosis) {
+        const d = data.diagnosis
+        const lines = [
+          `Webhook atteso: ${d.expectedWebhookUrl}`,
+          `Webhook registrato: ${d.registeredUrl ?? '(nessuno)'}`,
+          `URL corretto: ${d.urlMatch ? '✅' : '❌'}`,
+          d.lastTelegramError ? `Ultimo errore Telegram: ${d.lastTelegramError}` : null,
+          d.pendingUpdates != null ? `Update in coda: ${d.pendingUpdates}` : null,
+          '',
+          d.recommendation,
+        ].filter(Boolean).join('\n')
+        setDiagResult(lines)
+      }
+    } catch (e) {
+      setDiagResult('Errore di rete durante la diagnostica.')
+    } finally {
+      setDiagnosing(false)
+    }
+  }
+
   async function setupWebhook(canale: 'telegram' | 'whatsapp') {
     if (!tenant) return
+    const config = configs.find(c => c.canale === canale)
+    if (!config?.bot_token) { toast.error('Salva prima il token del bot'); return }
+
     setSettingUp(true)
     const apiUrl = import.meta.env.VITE_API_URL as string ?? ''
-    const secret = import.meta.env.VITE_INGEST_SECRET as string ?? ''
-    const res = await fetch(`${apiUrl}/api/setup/${canale}?tenant_id=${tenant.id}&secret=${secret}`)
-    const data = await res.json() as { ok?: boolean; webhookUrl?: string; error?: string; istruzioni?: string[] }
-    setSettingUp(false)
-    if (data.ok) {
-      toast.success(`Webhook ${canale} configurato: ${data.webhookUrl}`)
-    } else if (data.istruzioni) {
-      toast.info(data.istruzioni.join(' | '))
-    } else {
-      toast.error(data.error ?? 'Errore setup')
+
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/activate-bot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: tenant.id,
+          bot_token: config.bot_token,
+          nome_bot: config.nome_bot,
+        }),
+      })
+      const data = await res.json() as { ok?: boolean; webhookUrl?: string; error?: string }
+      if (data.ok) {
+        toast.success(`Bot attivato! Webhook: ${data.webhookUrl}`)
+        setDiagResult(null)
+      } else {
+        toast.error(data.error ?? 'Errore attivazione bot')
+      }
+    } catch {
+      toast.error('Errore di rete')
+    } finally {
+      setSettingUp(false)
     }
   }
 
@@ -100,13 +187,22 @@ export function BotConfigPage() {
                         {config ? 'Modifica' : 'Configura'}
                       </button>
                       {config?.attivo && (
-                        <button
-                          onClick={() => setupWebhook(canale)}
-                          disabled={settingUp}
-                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                        >
-                          {settingUp ? 'Configurando...' : 'Setup Webhook'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => setupWebhook(canale)}
+                            disabled={settingUp}
+                            className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                          >
+                            {settingUp ? 'Configurando...' : 'Attiva bot'}
+                          </button>
+                          <button
+                            onClick={runDiagnostic}
+                            disabled={diagnosing}
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {diagnosing ? '...' : '🔍 Diagnostica'}
+                          </button>
+                        </>
                       )}
                     </>
                   )}
@@ -114,14 +210,22 @@ export function BotConfigPage() {
               </div>
 
               {config && !isWhatsApp && (
-                <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
-                  <div><span className="font-medium">Nome bot:</span> {config.nome_bot}</div>
-                  <div><span className="font-medium">Lingua:</span> {config.lingua_default}</div>
-                  {config.admin_chat_id && (
-                    <div><span className="font-medium">Admin Chat ID:</span> {config.admin_chat_id}</div>
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                    <div><span className="font-medium">Nome bot:</span> {config.nome_bot}</div>
+                    <div><span className="font-medium">Lingua:</span> {config.lingua_default}</div>
+                    {config.admin_chat_id && (
+                      <div><span className="font-medium">Admin Chat ID:</span> {config.admin_chat_id}</div>
+                    )}
+                    <div><span className="font-medium">Token:</span> {config.bot_token ? '••••••••' + config.bot_token.slice(-6) : '—'}</div>
+                  </div>
+                  {diagResult && (
+                    <div className="mt-4 rounded-lg bg-gray-50 border border-gray-200 p-3">
+                      <div className="text-xs font-semibold text-gray-700 mb-1">Risultato diagnostica:</div>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono leading-relaxed">{diagResult}</pre>
+                    </div>
                   )}
-                  <div><span className="font-medium">Token:</span> {config.bot_token ? '••••••••' + config.bot_token.slice(-6) : '—'}</div>
-                </div>
+                </>
               )}
 
               {!config && !isWhatsApp && (
