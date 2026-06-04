@@ -192,6 +192,19 @@ export function BotConfigPage() {
                 </div>
               )}
 
+              {config?.attivo && !isWhatsApp && (
+                <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700 space-y-1 leading-relaxed">
+                  <p className="font-semibold">📱 Come funziona per gli inquilini:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+                    <li>L'inquilino apre il bot su Telegram e invia <code className="bg-blue-100 px-1 rounded">/start</code></li>
+                    <li>Il bot mostra una spiegazione e chiede di condividere il numero di telefono</li>
+                    <li>L'inquilino preme "Condividi il mio numero" — il bot lo abbina all'anagrafica</li>
+                    <li>Da quel momento tutti i comandi (<code className="bg-blue-100 px-1 rounded">/contratto</code>, <code className="bg-blue-100 px-1 rounded">/normativa</code>, ecc.) funzionano</li>
+                  </ol>
+                  <p className="text-blue-500 pt-1">⚠️ I comandi non funzionano finché l'inquilino non ha completato il passo 3.</p>
+                </div>
+              )}
+
               {isWhatsApp && (
                 <div className="mt-2 text-sm text-gray-400">
                   Il supporto WhatsApp Business è in arrivo. Al lancio utilizzeremo un BSP (Business Solution Provider) per semplificare la configurazione.
@@ -213,10 +226,10 @@ export function BotConfigPage() {
                   <Field label="Bot Token (da @BotFather)">
                     <input value={editing.bot_token ?? ''} onChange={(e) => setEditing({ ...editing, bot_token: e.target.value })} className={INPUT} placeholder="8888179292:AAFYnVb..." />
                   </Field>
-                  <Field label="Webhook Secret (opzionale, 32+ char)">
-                    <input value={editing.webhook_secret ?? ''} onChange={(e) => setEditing({ ...editing, webhook_secret: e.target.value || null })} className={INPUT} />
-                  </Field>
-                  <Field label="Admin Chat ID (per notifiche P1)">
+                  <Field
+                    label="Admin Chat ID (per notifiche urgenti)"
+                    hint="Il tuo ID Telegram personale. Quando un inquilino segnala un'emergenza (ticket P1), il bot ti scrive direttamente. Per trovarlo: scrivi /start a @userinfobot su Telegram."
+                  >
                     <input value={editing.admin_chat_id ?? ''} onChange={(e) => setEditing({ ...editing, admin_chat_id: e.target.value || null })} className={INPUT} placeholder="123456789" />
                   </Field>
                 </>
@@ -242,8 +255,11 @@ export function BotConfigPage() {
               <Field label="Nome bot">
                 <input value={editing.nome_bot ?? 'TenantBot'} onChange={(e) => setEditing({ ...editing, nome_bot: e.target.value })} className={INPUT} />
               </Field>
-              <Field label="Messaggio di benvenuto (opzionale)">
-                <textarea value={editing.messaggio_benvenuto ?? ''} onChange={(e) => setEditing({ ...editing, messaggio_benvenuto: e.target.value || null })} rows={3} className={INPUT + ' resize-none'} />
+              <Field
+                label="Messaggio di benvenuto (opzionale)"
+                hint="Mostrato agli inquilini già collegati quando inviano /start. Se vuoto, il bot dice: «Ciao [nome]! Come posso aiutarti?». Non sostituisce la spiegazione mostrata ai nuovi utenti."
+              >
+                <textarea value={editing.messaggio_benvenuto ?? ''} onChange={(e) => setEditing({ ...editing, messaggio_benvenuto: e.target.value || null })} rows={3} className={INPUT + ' resize-none'} placeholder="Es. Ciao! Sono qui per aiutarti con contratto, normativa e manutenzione." />
               </Field>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={editing.attivo ?? false} onChange={(e) => setEditing({ ...editing, attivo: e.target.checked })} />
@@ -264,6 +280,13 @@ export function BotConfigPage() {
 }
 
 const INPUT = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500'
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>{children}</div>
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-xs text-gray-400 leading-relaxed">{hint}</p>}
+    </div>
+  )
 }

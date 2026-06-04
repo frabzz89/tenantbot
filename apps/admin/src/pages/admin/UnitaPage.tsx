@@ -112,7 +112,7 @@ export function UnitaPage() {
     <div>
       <PageHeader
         title="Unità"
-        description="Gestisci appartamenti e unità immobiliari"
+        description="Gestisci appartamenti e unità delle tue palazzine"
         action={
           <button
             onClick={() => setDialog({ tipo_immobile: 'residenziale', stato: 'bozza', proprieta_id: filterPropId === 'all' ? undefined : filterPropId })}
@@ -158,7 +158,7 @@ export function UnitaPage() {
           <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
             <div className="text-3xl mb-2">🏢</div>
             <div className="text-sm text-gray-500">
-              Prima devi creare almeno una proprietà in <strong>Proprietà</strong>.
+              Prima devi creare almeno una palazzina in <strong>Palazzine</strong>.
             </div>
           </div>
         )}
@@ -257,7 +257,7 @@ export function UnitaPage() {
 
             <div className="space-y-3">
               {/* Property */}
-              <Field label="Proprietà *">
+              <Field label="Palazzina *">
                 <select
                   value={dialog.proprieta_id ?? ''}
                   onChange={(e) => setDialog({ ...dialog, proprieta_id: e.target.value })}

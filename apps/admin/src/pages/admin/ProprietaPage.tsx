@@ -41,14 +41,14 @@ export function ProprietaPage() {
   return (
     <div>
       <PageHeader
-        title="Proprietà"
-        description="Gestisci i tuoi edifici e immobili"
+        title="Palazzine"
+        description="Gestisci i tuoi edifici e palazzine"
         action={
           <button
             onClick={() => setDialog({ tipo: 'residenziale', attivo: true })}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
           >
-            + Nuova proprietà
+            + Nuova palazzina
           </button>
         }
       />
@@ -57,7 +57,7 @@ export function ProprietaPage() {
         {items.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
             <div className="text-3xl mb-2">🏢</div>
-            <div className="text-sm text-gray-500">Nessuna proprietà ancora. Aggiungine una per iniziare.</div>
+            <div className="text-sm text-gray-500">Nessuna palazzina ancora. Aggiungine una per iniziare.</div>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -91,7 +91,7 @@ export function ProprietaPage() {
       {dialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold mb-4">{dialog.id ? 'Modifica' : 'Nuova'} proprietà</h2>
+            <h2 className="text-lg font-semibold mb-4">{dialog.id ? 'Modifica' : 'Nuova'} palazzina</h2>
             <div className="space-y-3">
               <Field label="Nome">
                 <input value={dialog.nome ?? ''} onChange={(e) => setDialog({ ...dialog, nome: e.target.value })} className={INPUT} />

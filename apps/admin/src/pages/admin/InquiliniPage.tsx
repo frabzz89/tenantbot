@@ -3,66 +3,74 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '../../components/PageHeader'
 import { Badge } from '../../components/Badge'
-import type { Inquilino, Proprieta } from '@tenantbot/db'
+import type { Inquilino } from '@tenantbot/db'
 
-// Row returned from supabase join: inquilini + inquilino_proprieta
-type AssocRow = {
-  inquilino_id: string
-  proprieta_id: string
-  proprieta: { nome: string } | null
+// Unit option shown in the dropdown
+type UnitaOption = {
+  id: string
+  display: string    // e.g. "Int. 2A — Palazzina Rossi"
+  prop_nome: string
 }
 
 type InquilinoRow = Inquilino & {
-  _propNomi: string   // comma-separated property names for display
-  _propIds: string[]  // selected proprieta IDs (populated by load())
+  _unitaNome: string  // display label for the unit column
 }
 
 export function InquiliniPage() {
   const { tenant } = useAuth()
   const [items, setItems] = useState<InquilinoRow[]>([])
-  const [proprieta, setProprietа] = useState<Proprieta[]>([])
+  const [unitaOptions, setUnitaOptions] = useState<UnitaOption[]>([])
   const [dialog, setDialog] = useState<Partial<Inquilino> | null>(null)
-  const [dialogPropIds, setDialogPropIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
 
+  // ── load ────────────────────────────────────────────────────────────────────
+
   async function load() {
     if (!tenant) return
-    const [{ data: inqData }, { data: assocData }, { data: propData }] = await Promise.all([
+    const [{ data: inqData }, { data: unitaRaw }] = await Promise.all([
       supabase.from('inquilini').select('*').order('cognome'),
-      supabase.from('inquilino_proprieta').select('inquilino_id, proprieta_id, proprieta(nome)'),
-      supabase.from('proprieta').select('*').eq('attivo', true).order('nome'),
+      supabase.from('unita')
+        .select('id, interno, slug, proprieta:proprieta_id(nome)')
+        .neq('stato', 'archiviata')
+        .order('slug'),
     ])
 
-    const assocs = (assocData ?? []) as unknown as AssocRow[]
+    // Build unit options (Supabase returns the join as object, cast through unknown)
+    type RawUnita = { id: string; interno: string | null; slug: string; proprieta: { nome: string } | null }
+    const rawUnits = (unitaRaw ?? []) as unknown as RawUnita[]
 
-    const enriched: InquilinoRow[] = (inqData ?? []).map((inq) => {
-      const mine = assocs.filter((a) => a.inquilino_id === inq.id)
-      return {
-        ...(inq as Inquilino),
-        _propNomi: mine.map((a) => a.proprieta?.nome).filter(Boolean).join(', ') || '—',
-        _propIds: mine.map((a) => a.proprieta_id),
-      }
-    })
+    const options: UnitaOption[] = rawUnits.map((u) => ({
+      id: u.id,
+      display: `${u.interno ? `Int. ${u.interno}` : u.slug}${u.proprieta?.nome ? ` — ${u.proprieta.nome}` : ''}`,
+      prop_nome: u.proprieta?.nome ?? '',
+    }))
+    setUnitaOptions(options)
 
+    const unitaMap = Object.fromEntries(options.map((o) => [o.id, o.display]))
+
+    const enriched: InquilinoRow[] = (inqData ?? []).map((inq) => ({
+      ...(inq as Inquilino),
+      _unitaNome: inq.unita_id ? (unitaMap[inq.unita_id] ?? '—') : '—',
+    }))
     setItems(enriched)
-    setProprietа(propData ?? [])
   }
 
   useEffect(() => { load() }, [tenant])
 
+  // ── dialog helpers ───────────────────────────────────────────────────────────
+
   function openDialog(inq: InquilinoRow | null) {
     if (!inq) {
       setDialog({ lingua: 'it', attivo: true })
-      setDialogPropIds([])
-      return
+    } else {
+      const { _unitaNome: _n, ...rest } = inq
+      setDialog(rest)
     }
-    // Strip UI-only fields before putting into dialog state
-    const { _propNomi: _n, _propIds, ...rest } = inq
-    setDialog(rest)
-    setDialogPropIds(_propIds)
   }
+
+  // ── save ─────────────────────────────────────────────────────────────────────
 
   async function save() {
     if (!dialog || !tenant) return
@@ -70,51 +78,26 @@ export function InquiliniPage() {
 
     const { id, ...fields } = dialog
     const payload = { ...fields, tenant_id: tenant.id }
-    let inquilinoId: string | undefined = id
 
-    if (id) {
-      const { error: e } = await supabase.from('inquilini').update(payload).eq('id', id)
-      if (e) { setError(e.message); setSaving(false); return }
-    } else {
-      const { data, error: e } = await supabase
-        .from('inquilini')
-        .insert(payload)
-        .select('id')
-        .single()
-      if (e || !data) { setError(e?.message ?? 'Errore creazione'); setSaving(false); return }
-      inquilinoId = (data as { id: string }).id
-    }
-
-    // Sync junction table: delete old associations, insert new ones
-    if (inquilinoId) {
-      await supabase.from('inquilino_proprieta').delete().eq('inquilino_id', inquilinoId)
-      if (dialogPropIds.length > 0) {
-        await supabase.from('inquilino_proprieta').insert(
-          dialogPropIds.map((pid) => ({
-            tenant_id: tenant.id,
-            inquilino_id: inquilinoId,
-            proprieta_id: pid,
-          }))
-        )
-      }
-    }
+    const { error: e } = id
+      ? await supabase.from('inquilini').update(payload).eq('id', id)
+      : await supabase.from('inquilini').insert(payload)
 
     setSaving(false)
+    if (e) { setError(e.message); return }
     setDialog(null)
     load()
   }
 
-  function toggleProp(id: string) {
-    setDialogPropIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-  }
+  // ── filter ───────────────────────────────────────────────────────────────────
 
   const filtered = items.filter((i) =>
     `${i.nome} ${i.cognome} ${i.email ?? ''} ${i.telefono_whatsapp ?? ''}`
       .toLowerCase()
       .includes(search.toLowerCase())
   )
+
+  // ── render ───────────────────────────────────────────────────────────────────
 
   return (
     <div>
@@ -145,7 +128,7 @@ export function InquiliniPage() {
               <tr>
                 <th className="px-4 py-3 text-left">Nominativo</th>
                 <th className="px-4 py-3 text-left">Telefono</th>
-                <th className="px-4 py-3 text-left">Proprietà</th>
+                <th className="px-4 py-3 text-left">Unità</th>
                 <th className="px-4 py-3 text-left">Telegram</th>
                 <th className="px-4 py-3 text-left">Stato</th>
                 <th className="px-4 py-3" />
@@ -156,7 +139,7 @@ export function InquiliniPage() {
                 <tr key={i.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{i.cognome} {i.nome}</td>
                   <td className="px-4 py-3 text-gray-500">{i.telefono_whatsapp ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={i._propNomi}>{i._propNomi}</td>
+                  <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={i._unitaNome}>{i._unitaNome}</td>
                   <td className="px-4 py-3">
                     <Badge variant={i.telegram_user_id ? 'success' : 'warning'}>
                       {i.telegram_user_id ? 'Collegato' : 'Non collegato'}
@@ -182,6 +165,7 @@ export function InquiliniPage() {
         </div>
       </div>
 
+      {/* ── Dialog ── */}
       {dialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl my-4">
@@ -194,8 +178,13 @@ export function InquiliniPage() {
               <Field label="Cognome *">
                 <input value={dialog.cognome ?? ''} onChange={(e) => setDialog({ ...dialog, cognome: e.target.value })} className={INPUT} />
               </Field>
-              <Field label="Telefono (E.164)">
-                <input value={dialog.telefono_whatsapp ?? ''} onChange={(e) => setDialog({ ...dialog, telefono_whatsapp: e.target.value })} placeholder="+39333..." className={INPUT} />
+              <Field label="Telefono (E.164) *">
+                <input
+                  value={dialog.telefono_whatsapp ?? ''}
+                  onChange={(e) => setDialog({ ...dialog, telefono_whatsapp: e.target.value })}
+                  placeholder="+39333..."
+                  className={INPUT}
+                />
               </Field>
               <Field label="Email">
                 <input type="email" value={dialog.email ?? ''} onChange={(e) => setDialog({ ...dialog, email: e.target.value })} className={INPUT} />
@@ -217,36 +206,24 @@ export function InquiliniPage() {
               </Field>
             </div>
 
-            {/* Proprietà associate — multi-select via checkboxes */}
-            <div className="mt-5">
-              <label className="block text-xs font-medium text-gray-600 mb-2">
-                Proprietà associate
-                <span className="ml-1 font-normal text-gray-400">(seleziona una o più)</span>
-              </label>
-              {proprieta.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">
-                  Nessuna proprietà disponibile. Aggiungine una in Proprietà prima.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {proprieta.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 cursor-pointer hover:bg-gray-50 select-none"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={dialogPropIds.includes(p.id)}
-                        onChange={() => toggleProp(p.id)}
-                        className="accent-brand-600 h-4 w-4 shrink-0"
-                      />
-                      <span className="text-sm text-gray-800 font-medium">{p.nome}</span>
-                      {p.indirizzo && (
-                        <span className="ml-auto text-xs text-gray-400">{p.indirizzo}{p.citta ? `, ${p.citta}` : ''}</span>
-                      )}
-                    </label>
+            {/* Unit picker */}
+            <div className="mt-4">
+              <Field label="Unità assegnata">
+                <select
+                  value={dialog.unita_id ?? ''}
+                  onChange={(e) => setDialog({ ...dialog, unita_id: e.target.value || null })}
+                  className={INPUT}
+                >
+                  <option value="">— Nessuna unità —</option>
+                  {unitaOptions.map((u) => (
+                    <option key={u.id} value={u.id}>{u.display}</option>
                   ))}
-                </div>
+                </select>
+              </Field>
+              {unitaOptions.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Nessuna unità disponibile. Crea prima le unità in <strong>Unità</strong>.
+                </p>
               )}
             </div>
 
