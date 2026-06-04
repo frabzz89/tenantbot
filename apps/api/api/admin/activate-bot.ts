@@ -37,7 +37,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    const json = await r.json() as { ok: boolean; description?: string }
+    const json = await r.json() as { ok: boolean; description?: string; result?: Record<string, unknown> }
+    return json
+  }
+
+  async function tgGet(method: string) {
+    const r = await fetch(`https://api.telegram.org/bot${bot_token}/${method}`)
+    const json = await r.json() as { ok: boolean; description?: string; result?: Record<string, unknown> }
     return json
   }
 
@@ -84,7 +90,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: 'Assistente per inquilini. Chiedimi info sul tuo contratto, segnala guasti o chiedi informazioni sul condominio.',
     })
 
-    return res.status(200).json({ ok: true, webhookUrl })
+    // 5. Fetch bot username (needed for deep links: t.me/USERNAME?start=...)
+    const getMeRes = await tgGet('getMe')
+    const botUsername = getMeRes.ok ? (getMeRes.result?.username as string | undefined) : undefined
+    if (botUsername) {
+      await supabase
+        .from('bot_configurazioni')
+        .update({ bot_username: botUsername })
+        .eq('tenant_id', tenant_id)
+        .eq('canale', 'telegram')
+    }
+
+    return res.status(200).json({ ok: true, webhookUrl, botUsername })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[activate-bot]', msg)

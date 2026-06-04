@@ -61,16 +61,29 @@ export class BotEngine {
   async handleMessage(message: NormalizedMessage, recipient: string): Promise<void> {
     const senderId = message.senderId
 
+    // ── Metodo 1: deep link /start inq_UUID ──────────────────────────────────
+    // Telegram invia "/start inq_<uuid-no-dashes>" quando l'inquilino clicca
+    // il link personalizzato copiato dal backoffice.
+    if (
+      message.isCommand &&
+      message.command === 'start' &&
+      message.commandArgs?.startsWith('inq_')
+    ) {
+      await this.handleDeepLink(senderId, recipient, message.commandArgs.slice(4))
+      return
+    }
+
     // Lookup inquilino per sender_id (telegram_user_id o whatsapp_phone)
     const inquilino = await this.lookupInquilino(senderId)
 
     if (!inquilino) {
-      // Flusso registrazione
+      // Contatto condiviso (vecchio flusso — tenuto come fallback)
       if (message.contact) {
         await this.handleContactLink(recipient, senderId, message.contact)
-      } else {
-        await this.handleUnknownUser(recipient, message)
+        return
       }
+      // ── Metodo 3: auto-registrazione via cognome + interno ────────────────
+      await this.handleUnknownUser(recipient, senderId, message)
       return
     }
 
@@ -79,27 +92,179 @@ export class BotEngine {
     }
   }
 
-  // ─── Utente non riconosciuto: benvenuto + richiesta contatto ──────────────
+  // ─── Metodo 1: collega tramite UUID nel deep link ─────────────────────────
 
-  private async handleUnknownUser(recipient: string, message: NormalizedMessage) {
+  private async handleDeepLink(senderId: string, recipient: string, rawId: string) {
+    // rawId è l'UUID senza trattini (32 hex chars) — ricostruiamo il formato standard
+    const uuid = rawId.length === 32
+      ? `${rawId.slice(0, 8)}-${rawId.slice(8, 12)}-${rawId.slice(12, 16)}-${rawId.slice(16, 20)}-${rawId.slice(20)}`
+      : rawId  // già con trattini
+
+    const { data: inq } = await this.db
+      .from('inquilini')
+      .select('id, nome, attivo, telegram_user_id')
+      .eq('tenant_id', this.tenantId)
+      .eq('id', uuid)
+      .single()
+
+    if (!inq) {
+      await this.adapter.sendText(recipient, '❌ Link non valido o scaduto. Contatta l\'amministratore.')
+      return
+    }
+    if (!inq.attivo) {
+      await this.adapter.sendText(recipient, '❌ Il tuo accesso non è attivo. Contatta l\'amministratore.')
+      return
+    }
+    if (inq.telegram_user_id && inq.telegram_user_id !== senderId) {
+      await this.adapter.sendText(recipient, '⚠️ Questo link è già stato usato da un altro account Telegram. Contatta l\'amministratore.')
+      return
+    }
+
+    await this.db.from('inquilini').update({ telegram_user_id: senderId }).eq('id', inq.id)
+
+    await this.adapter.sendKeyboard(
+      recipient,
+      `✅ Collegato! Ciao <b>${inq.nome}</b> 👋\n\nSono il tuo assistente digitale. Puoi chiedermi info sul contratto, la normativa condominiale o segnalare guasti.`,
+      MAIN_KEYBOARD
+    )
+  }
+
+  // ─── Metodo 3: auto-registrazione cognome + interno ───────────────────────
+
+  private async handleUnknownUser(recipient: string, senderId: string, message: NormalizedMessage) {
     const isStart = message.isCommand && message.command === 'start'
     const nomBot = this.cfg.botConfig.nomeBot ?? 'TenantBot'
 
+    // Se l'utente era già in attesa di inserire cognome+interno, prova il match
+    const registrationPending = await this.getRegistrationPending(senderId)
+    if (registrationPending && message.text && !isStart) {
+      await this.handleSelfRegistration(senderId, recipient, message.text)
+      return
+    }
+
+    // Prima richiesta: spiega come fare e metti in attesa
+    await this.clearRegistrationPending(senderId)
+    await this.setRegistrationPending(senderId)
+
+    const prompt =
+      `Per collegare il tuo profilo, scrivi il tuo <b>cognome</b> e il <b>numero del tuo interno</b> separati da uno spazio.\n` +
+      `<i>Es: Rossi 2A</i>`
+
     if (isStart) {
-      // Prima di chiedere il numero, spieghiamo cos'è il bot
-      await this.adapter.sendText(
+      await this.adapter.removeKeyboard(
         recipient,
         `👋 Benvenuto su <b>${nomBot}</b>!\n\n` +
         `Sono il tuo assistente digitale per:\n` +
-        `📄 Informazioni sul tuo contratto\n` +
+        `📄 Informazioni sul contratto\n` +
         `⚖️ Normativa condominiale\n` +
         `🔧 Segnalazioni di manutenzione\n\n` +
-        `Per continuare, condividi il tuo numero di telefono con il pulsante qui sotto. ` +
-        `Il numero deve essere lo stesso comunicato all'amministratore.`
+        prompt
       )
+    } else {
+      await this.adapter.removeKeyboard(recipient, `👋 Non riconosco il tuo profilo.\n\n${prompt}`)
+    }
+  }
+
+  private async handleSelfRegistration(senderId: string, recipient: string, text: string) {
+    const parts = text.trim().split(/\s+/)
+
+    if (parts.length < 2) {
+      await this.adapter.removeKeyboard(
+        recipient,
+        '⚠️ Formato non riconosciuto. Scrivi <b>cognome</b> e <b>interno</b> separati da spazio.\n<i>Es: Rossi 2A</i>'
+      )
+      return  // lascia pending, riprova al prossimo messaggio
     }
 
-    await this.adapter.requestContact(recipient)
+    // Ultimo token = interno, tutto il resto = cognome (gestisce nomi composti)
+    const interno = parts[parts.length - 1].toUpperCase()
+    const cognome = parts.slice(0, -1).join(' ')
+
+    // Cerca inquilini per cognome (case-insensitive) con unità
+    const { data: candidates } = await this.db
+      .from('inquilini')
+      .select('id, nome, cognome, attivo, unita:unita_id(interno)')
+      .eq('tenant_id', this.tenantId)
+      .ilike('cognome', cognome)
+      .eq('attivo', true)
+
+    type RawCandidate = {
+      id: string; nome: string; cognome: string; attivo: boolean
+      unita?: { interno: string | null } | null
+    }
+    const all = (candidates ?? []) as unknown as RawCandidate[]
+
+    // Filtra per interno corrispondente
+    const matches = all.filter((m) => m.unita?.interno?.toUpperCase() === interno)
+
+    if (matches.length === 0) {
+      await this.adapter.removeKeyboard(
+        recipient,
+        `❌ Nessun profilo trovato per <b>${cognome}</b> interno <b>${interno}</b>.\n\n` +
+        `Controlla il cognome e il numero dell'interno e riprova, oppure contatta il tuo amministratore.`
+      )
+      return  // lascia pending, l'utente può riprovare
+    }
+
+    if (matches.length > 1) {
+      // Caso raro (più inquilini con stesso cognome e stesso interno)
+      await this.adapter.removeKeyboard(
+        recipient,
+        '⚠️ Trovati più profili con questi dati. Contatta il tuo amministratore per il collegamento.'
+      )
+      await this.clearRegistrationPending(senderId)
+      return
+    }
+
+    const inq = matches[0]
+
+    // Collega!
+    await this.db.from('inquilini').update({ telegram_user_id: senderId }).eq('id', inq.id)
+    await this.clearRegistrationPending(senderId)
+
+    await this.adapter.sendKeyboard(
+      recipient,
+      `✅ Collegato! Ciao <b>${inq.nome}</b> 👋\n\nSono il tuo assistente digitale. Puoi chiedermi info sul contratto, la normativa condominiale o segnalare guasti.`,
+      MAIN_KEYBOARD
+    )
+  }
+
+  // pending state per registrazione (inquilino_id = null, indexed by sender_id)
+
+  private async getRegistrationPending(senderId: string): Promise<boolean> {
+    const { data } = await this.db
+      .from('conversazioni')
+      .select('id')
+      .eq('tenant_id', this.tenantId)
+      .eq('sender_id', senderId)
+      .is('inquilino_id', null)
+      .eq('role', 'system')
+      .eq('intent_classificato', 'registration_pending')
+      .limit(1)
+      .maybeSingle()
+    return !!data
+  }
+
+  private async setRegistrationPending(senderId: string) {
+    await this.db.from('conversazioni').insert({
+      tenant_id: this.tenantId,
+      sender_id: senderId,
+      canale: this.cfg.adapter.canale,
+      role: 'system',
+      messaggio: 'registration_pending',
+      intent_classificato: 'registration_pending',
+    })
+  }
+
+  private async clearRegistrationPending(senderId: string) {
+    await this.db
+      .from('conversazioni')
+      .delete()
+      .eq('tenant_id', this.tenantId)
+      .eq('sender_id', senderId)
+      .is('inquilino_id', null)
+      .eq('role', 'system')
+      .eq('intent_classificato', 'registration_pending')
   }
 
   // ─── Lookup inquilino per canale ──────────────────────────────────────────

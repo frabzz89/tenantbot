@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '../../components/PageHeader'
@@ -24,18 +25,25 @@ export function InquiliniPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [botUsername, setBotUsername] = useState<string | null>(null)
 
   // ── load ────────────────────────────────────────────────────────────────────
 
   async function load() {
     if (!tenant) return
-    const [{ data: inqData }, { data: unitaRaw }] = await Promise.all([
+    const [{ data: inqData }, { data: unitaRaw }, { data: botConfig }] = await Promise.all([
       supabase.from('inquilini').select('*').order('cognome'),
       supabase.from('unita')
         .select('id, interno, slug, proprieta:proprieta_id(nome)')
         .neq('stato', 'archiviata')
         .order('slug'),
+      supabase.from('bot_configurazioni')
+        .select('bot_username')
+        .eq('tenant_id', tenant.id)
+        .eq('canale', 'telegram')
+        .maybeSingle(),
     ])
+    setBotUsername((botConfig as { bot_username?: string | null } | null)?.bot_username ?? null)
 
     // Build unit options (Supabase returns the join as object, cast through unknown)
     type RawUnita = { id: string; interno: string | null; slug: string; proprieta: { nome: string } | null }
@@ -94,6 +102,26 @@ export function InquiliniPage() {
   async function unlinkTelegram(id: string) {
     await supabase.from('inquilini').update({ telegram_user_id: null }).eq('id', id)
     load()
+  }
+
+  // ── copy telegram deep-link ───────────────────────────────────────────────
+  // Il link porta l'inquilino direttamente al bot già collegato al suo profilo.
+  // Formato: https://t.me/BOT_USERNAME?start=inq_UUID_NO_DASHES
+
+  async function copyTelegramLink(inq: InquilinoRow) {
+    if (!botUsername) {
+      toast.error('Username bot non disponibile. Vai in Bot Config e salva la configurazione.')
+      return
+    }
+    const id = inq.id.replace(/-/g, '')
+    const link = `https://t.me/${botUsername}?start=inq_${id}`
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.success(`Link copiato! Invialo a ${inq.nome} ${inq.cognome} via WhatsApp o email.`)
+    } catch {
+      // fallback per browser senza clipboard API
+      toast.info(`Link: ${link}`)
+    }
   }
 
   // ── filter ───────────────────────────────────────────────────────────────────
@@ -160,7 +188,16 @@ export function InquiliniPage() {
                         </button>
                       </div>
                     ) : (
-                      <Badge variant="warning">Non collegato</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="warning">Non collegato</Badge>
+                        <button
+                          onClick={() => copyTelegramLink(i)}
+                          className="text-xs text-brand-600 hover:text-brand-800 font-medium leading-none"
+                          title="Copia link da inviare all'inquilino"
+                        >
+                          🔗 Link
+                        </button>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
