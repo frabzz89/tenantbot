@@ -65,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       url: webhookUrl,
       secret_token: webhookSecret,
       allowed_updates: ['message', 'callback_query'],
+      drop_pending_updates: true,  // clear any stale queued updates from previous errors
     })
 
     if (!tgWebhook.ok) {

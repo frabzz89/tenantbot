@@ -93,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
       resendApiKey: process.env.RESEND_API_KEY ?? '',
       resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'TenantBot <noreply@tenantbot.it>',
-      adminEmail: process.env.RESEND_ADMIN_EMAIL ?? '',
+      adminEmail: config.email_contatto ?? '',  // property manager's email from tenants table
     })
 
     await engine.handleMessage(message, chatId)

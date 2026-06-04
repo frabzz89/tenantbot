@@ -84,8 +84,8 @@ export function KbPage() {
       pdfPath = path
     }
 
-    // 2. Save document
-    const { id, ...rest } = dialog
+    // 2. Save document — strip virtual/joined fields that are not DB columns
+    const { id, chunk_count: _cc, proprieta: _prop, ...rest } = dialog as KbRow
     const payload = { ...rest, tenant_id: tenant.id, ...(pdfPath ? { pdf_storage_path: pdfPath } : {}) }
     const { data: saved, error: e } = id
       ? await supabase.from('kb_documenti').update(payload).eq('id', id).select('id').single()

@@ -11,24 +11,29 @@ export async function loadBotConfig(tenantId: string, canale: 'telegram' | 'what
   const supabase = makeSupabase()
   const { data, error } = await supabase
     .from('bot_configurazioni')
-    .select('*')
+    .select('*, tenant:tenant_id(email_contatto)')
     .eq('tenant_id', tenantId)
     .eq('canale', canale)
     .eq('attivo', true)
     .single()
 
   if (error || !data) return null
-  return data as {
-    tenant_id: string
-    canale: 'telegram' | 'whatsapp'
-    bot_token: string
-    webhook_secret: string | null
-    api_secret: string | null
-    admin_chat_id: string | null
-    access_token: string | null
-    lingua_default: string
-    nome_bot: string
-    messaggio_benvenuto: string | null
-    waba_id: string | null
+
+  const raw = data as typeof data & { tenant?: { email_contatto: string } | null }
+
+  return {
+    tenant_id: raw.tenant_id as string,
+    canale: raw.canale as 'telegram' | 'whatsapp',
+    bot_token: raw.bot_token as string,
+    webhook_secret: raw.webhook_secret as string | null,
+    api_secret: raw.api_secret as string | null,
+    admin_chat_id: raw.admin_chat_id as string | null,
+    access_token: raw.access_token as string | null,
+    lingua_default: raw.lingua_default as string,
+    nome_bot: raw.nome_bot as string,
+    messaggio_benvenuto: raw.messaggio_benvenuto as string | null,
+    waba_id: raw.waba_id as string | null,
+    // Property manager's email — used for P1 escalation notifications
+    email_contatto: raw.tenant?.email_contatto ?? null as string | null,
   }
 }
