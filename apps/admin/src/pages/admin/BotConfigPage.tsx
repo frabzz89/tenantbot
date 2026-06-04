@@ -176,6 +176,19 @@ export function BotConfigPage() {
                       <div><span className="font-medium">Admin Chat ID:</span> {config.admin_chat_id}</div>
                     )}
                     <div><span className="font-medium">Token:</span> {config.bot_token ? '••••••••' + config.bot_token.slice(-6) : '—'}</div>
+                    {(config as typeof config & { bot_username?: string }).bot_username && (
+                      <div className="col-span-2">
+                        <span className="font-medium">Username bot:</span>{' '}
+                        <a
+                          href={`https://t.me/${(config as typeof config & { bot_username?: string }).bot_username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand-600 hover:underline"
+                        >
+                          @{(config as typeof config & { bot_username?: string }).bot_username}
+                        </a>
+                      </div>
+                    )}
                   </div>
                   {diagResult && (
                     <div className="mt-4 rounded-lg bg-gray-50 border border-gray-200 p-3">
@@ -193,15 +206,26 @@ export function BotConfigPage() {
               )}
 
               {config?.attivo && !isWhatsApp && (
-                <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700 space-y-1 leading-relaxed">
-                  <p className="font-semibold">📱 Come funziona per gli inquilini:</p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
-                    <li>L'inquilino apre il bot su Telegram e invia <code className="bg-blue-100 px-1 rounded">/start</code></li>
-                    <li>Il bot mostra una spiegazione e chiede di condividere il numero di telefono</li>
-                    <li>L'inquilino preme "Condividi il mio numero" — il bot lo abbina all'anagrafica</li>
-                    <li>Da quel momento tutti i comandi (<code className="bg-blue-100 px-1 rounded">/contratto</code>, <code className="bg-blue-100 px-1 rounded">/normativa</code>, ecc.) funzionano</li>
-                  </ol>
-                  <p className="text-blue-500 pt-1">⚠️ I comandi non funzionano finché l'inquilino non ha completato il passo 3.</p>
+                <div className="mt-4 space-y-3">
+                  {/* Method 1 */}
+                  <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-xs text-green-800 leading-relaxed">
+                    <p className="font-semibold mb-1">🔗 Metodo 1 — Link diretto (consigliato)</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-green-700">
+                      <li>Vai in <strong>Inquilini</strong> → clicca <strong>🔗 Link</strong> accanto all'inquilino non collegato</li>
+                      <li>Invia il link copiato all'inquilino via WhatsApp o email</li>
+                      <li>L'inquilino clicca il link → Telegram si apre → è collegato automaticamente</li>
+                    </ol>
+                  </div>
+                  {/* Method 2 */}
+                  <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700 leading-relaxed">
+                    <p className="font-semibold mb-1">📋 Metodo 2 — Auto-registrazione (per chi trova il bot da solo)</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+                      <li>L'inquilino manda <code className="bg-blue-100 px-1 rounded">/start</code> al bot</li>
+                      <li>Il bot chiede: "Scrivi il tuo cognome e interno (es. <code className="bg-blue-100 px-1 rounded">Rossi 2A</code>)"</li>
+                      <li>Il bot cerca in anagrafica e lo collega automaticamente</li>
+                    </ol>
+                    <p className="text-blue-500 mt-1">Utile con un QR code in bacheca che punta al bot.</p>
+                  </div>
                 </div>
               )}
 
