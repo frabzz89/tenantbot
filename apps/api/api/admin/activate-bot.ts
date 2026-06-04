@@ -3,8 +3,16 @@ import { randomUUID } from 'crypto'
 import { makeSupabase } from '../../_lib/supabase'
 import { handleOptions, setCorsHeaders } from '../../_lib/cors'
 
+// Bot commands shown in the Telegram menu (hamburger icon next to the input field)
+const BOT_COMMANDS = [
+  { command: 'contratto',   description: 'Domande sul mio contratto' },
+  { command: 'normativa',   description: 'Normativa e regolamento condominiale' },
+  { command: 'manutenzione',description: 'Segnala un guasto o problema' },
+  { command: 'aiuto',       description: 'Come usare questo servizio' },
+]
+
 // POST /api/admin/activate-bot
-// Saves Telegram bot config to DB and registers the webhook directly via Telegram API.
+// Saves Telegram bot config to DB, registers the webhook and sets up commands.
 // No @tenantbot/core import — avoids loading BotEngine and its heavy AI dependencies.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleOptions(req, res)) return
@@ -23,6 +31,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const webhookSecret = randomUUID().replace(/-/g, '')
 
+  async function tgPost(method: string, body: object) {
+    const r = await fetch(`https://api.telegram.org/bot${bot_token}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const json = await r.json() as { ok: boolean; description?: string }
+    return json
+  }
+
   try {
     const supabase = makeSupabase()
 
@@ -39,24 +57,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (dbErr) return res.status(500).json({ error: 'Errore salvataggio: ' + dbErr.message })
 
-    // 2. Register webhook directly via Telegram Bot API (no adapter needed)
+    // 2. Register webhook
     const apiBase = `https://${req.headers.host}`
     const webhookUrl = `${apiBase}/api/webhook/telegram/${tenant_id}`
 
-    const tgRes = await fetch(`https://api.telegram.org/bot${bot_token}/setWebhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: webhookUrl,
-        secret_token: webhookSecret,
-        allowed_updates: ['message', 'callback_query'],
-      }),
+    const tgWebhook = await tgPost('setWebhook', {
+      url: webhookUrl,
+      secret_token: webhookSecret,
+      allowed_updates: ['message', 'callback_query'],
     })
 
-    const tgData = await tgRes.json() as { ok: boolean; description?: string }
-    if (!tgData.ok) {
-      return res.status(500).json({ error: 'Telegram: ' + (tgData.description ?? 'errore sconosciuto') })
+    if (!tgWebhook.ok) {
+      return res.status(500).json({ error: 'Telegram setWebhook: ' + (tgWebhook.description ?? 'errore sconosciuto') })
     }
+
+    // 3. Set bot commands (creates the menu visible next to the input field)
+    const tgCmds = await tgPost('setMyCommands', { commands: BOT_COMMANDS })
+    if (!tgCmds.ok) {
+      // Non-fatal: webhook works but menu might be empty
+      console.warn('[activate-bot] setMyCommands failed:', tgCmds.description)
+    }
+
+    // 4. Set bot description shown on the profile page before first /start
+    await tgPost('setMyDescription', {
+      description: 'Assistente per inquilini. Chiedimi info sul tuo contratto, segnala guasti o chiedi informazioni sul condominio.',
+    })
 
     return res.status(200).json({ ok: true, webhookUrl })
   } catch (err: unknown) {

@@ -69,7 +69,7 @@ export class BotEngine {
       if (message.contact) {
         await this.handleContactLink(recipient, senderId, message.contact)
       } else {
-        await this.adapter.requestContact(recipient)
+        await this.handleUnknownUser(recipient, message)
       }
       return
     }
@@ -77,6 +77,29 @@ export class BotEngine {
     if (message.text) {
       await this.handleConversation(inquilino, recipient, message)
     }
+  }
+
+  // ─── Utente non riconosciuto: benvenuto + richiesta contatto ──────────────
+
+  private async handleUnknownUser(recipient: string, message: NormalizedMessage) {
+    const isStart = message.isCommand && message.command === 'start'
+    const nomBot = this.cfg.botConfig.nomeBot ?? 'TenantBot'
+
+    if (isStart) {
+      // Prima di chiedere il numero, spieghiamo cos'è il bot
+      await this.adapter.sendText(
+        recipient,
+        `👋 Benvenuto su <b>${nomBot}</b>!\n\n` +
+        `Sono il tuo assistente digitale per:\n` +
+        `📄 Informazioni sul tuo contratto\n` +
+        `⚖️ Normativa condominiale\n` +
+        `🔧 Segnalazioni di manutenzione\n\n` +
+        `Per continuare, condividi il tuo numero di telefono con il pulsante qui sotto. ` +
+        `Il numero deve essere lo stesso comunicato all'amministratore.`
+      )
+    }
+
+    await this.adapter.requestContact(recipient)
   }
 
   // ─── Lookup inquilino per canale ──────────────────────────────────────────
