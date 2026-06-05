@@ -26,8 +26,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = makeSupabase()
 
   try {
+    // supabase.auth.admin is available at runtime with service role key but the
+    // @supabase/supabase-js TS types don't always expose it — cast to bypass.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authAdmin = (supabase.auth as any).admin
+
     // ── Try to invite as new user ─────────────────────────────────────────────
-    const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email)
+    const { data: inviteData, error: inviteErr } = await authAdmin.inviteUserByEmail(email)
 
     let userId: string
     let isNew = true
@@ -36,10 +41,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // "User already registered" → user exists, find them by listing users
       // Supabase admin SDK has no "get by email" method, so we iterate pages.
       // Teams are tiny (< 20 people) so one page is always enough.
-      const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+      const { data: listData, error: listErr } = await authAdmin.listUsers({ perPage: 1000 })
       if (listErr) return res.status(500).json({ error: 'Errore ricerca utente: ' + listErr.message })
 
-      const existing = listData?.users?.find((u) => u.email === email)
+      const existing = listData?.users?.find((u: { email: string; id: string }) => u.email === email)
       if (!existing) {
         return res.status(500).json({ error: 'Errore invito: ' + inviteErr.message })
       }

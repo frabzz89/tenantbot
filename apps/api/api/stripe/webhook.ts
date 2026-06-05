@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(stripeSecretKey)
-    event = stripe.webhooks.constructEvent(rawBody, sig, stripeWebhookSecret) as typeof event
+    event = stripe.webhooks.constructEvent(rawBody, sig, stripeWebhookSecret) as unknown as typeof event
   } catch (err) {
     console.error('[stripe-webhook] firma non valida:', err)
     return res.status(400).json({ error: 'Firma webhook non valida' })

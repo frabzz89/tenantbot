@@ -26,9 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error) return res.status(500).json({ error: error.message })
 
     // 2. Enrich with email from auth.users using Admin API (service role only)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authAdmin = (supabase.auth as any).admin
     const enriched = await Promise.all(
-      (members ?? []).map(async (m) => {
-        const { data } = await supabase.auth.admin.getUserById(m.user_id)
+      (members ?? []).map(async (m: { user_id: string; ruolo: string; created_at: string }) => {
+        const { data } = await authAdmin.getUserById(m.user_id)
         return {
           user_id: m.user_id,
           email: data?.user?.email ?? '(email non disponibile)',
