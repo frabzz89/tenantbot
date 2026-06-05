@@ -18,16 +18,14 @@ async function sendFallback(botToken: string, chatId: string | number, text: str
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  // ── Respond 200 IMMEDIATELY — before any async work ──────────────────────
-  // Telegram marks the webhook as failed if it doesn't get a response within
-  // a few seconds. Responding here guarantees Telegram never sees a 500,
-  // regardless of what happens in the processing below.
-  res.status(200).end()
+  // NOTE: we do NOT send res.status(200).end() early — Vercel terminates the Lambda
+  // immediately when the response is sent. All processing must complete first.
+  // Telegram's webhook timeout is 60s, our maxDuration is 30s — plenty for bot responses.
 
   const tenantId = req.query.tenantId as string
   if (!tenantId) {
     console.warn('[telegram-webhook] missing tenantId in URL')
-    return
+    return res.status(200).end()
   }
 
   let botToken: string | undefined
@@ -39,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[tg-wh] tenant=${tenantId} config_ok=${!!config}`)
     if (!config) {
       console.warn(`[telegram-webhook] config non trovata per tenant=${tenantId}`)
-      return
+      return res.status(200).end()
     }
     botToken = config.bot_token
 
@@ -51,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `got=${JSON.stringify(secretHeader)} ` +
         `expected_prefix=${config.webhook_secret.slice(0, 6)}...`
       )
-      return
+      return res.status(200).end()
     }
     console.log(`[tg-wh] secret ok`)
 
@@ -75,8 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const chatId = adapter.extractChatId(body)
     console.log(`[tg-wh] chatId=${chatId} body_keys=${Object.keys(body ?? {}).join(',')}`)
     if (!chatId) {
-      // Non-message update (callback_query, edited_message, etc.) — ignore silently
-      return
+      // Non-message update (callback_query without message, etc.) — ignore silently
+      return res.status(200).end()
     }
     chatIdForFallback = chatId
 
@@ -84,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[tg-wh] message parsed: isCmd=${message?.isCommand} cmd=${message?.command} text_len=${message?.text?.length ?? 0}`)
     if (!message) {
       // Message with no text/contact (photo, sticker, etc.) — ignore silently
-      return
+      return res.status(200).end()
     }
 
     // ── Run the bot engine ───────────────────────────────────────────────────
@@ -98,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
       resendApiKey: process.env.RESEND_API_KEY ?? '',
       resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'TenantBot <noreply@tenantbot.it>',
-      adminEmail: config.email_contatto ?? '',  // property manager's email from tenants table
+      adminEmail: config.email_contatto ?? '',
     })
 
     await engine.handleMessage(message, chatId)
@@ -116,4 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     }
   }
+
+  // Always respond 200 to Telegram — do NOT move this earlier or Vercel kills the function
+  return res.status(200).end()
 }
