@@ -1,4 +1,4 @@
-﻿import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { ingestKbDocumento } from '@tenantbot/core'
 import { makeSupabase } from '../../_lib/supabase'
 import { handleOptions, setCorsHeaders } from '../../_lib/cors'
@@ -10,10 +10,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const secret = process.env.INGEST_SECRET
-  if (secret && req.headers.authorization !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: 'Unauthorized' })
-  }
+  // Verify Supabase JWT — any logged-in admin can trigger ingest
+  const jwt = req.headers.authorization?.replace('Bearer ', '')
+  if (!jwt) return res.status(401).json({ error: 'Unauthorized' })
+
+  const supabase = makeSupabase()
+  const { data: { user } } = await supabase.auth.getUser(jwt)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
   const { documento_id, tenant_id, testo } = req.body as {
     documento_id?: string
@@ -28,7 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!voyageApiKey) return res.status(500).json({ error: 'VOYAGE_API_KEY mancante' })
 
   try {
-    const supabase = makeSupabase()
     const result = await ingestKbDocumento({
       supabase,
       tenantId: tenant_id,
@@ -45,5 +47,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: msg })
   }
 }
-
-
