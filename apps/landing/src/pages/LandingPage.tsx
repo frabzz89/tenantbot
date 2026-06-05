@@ -38,23 +38,184 @@ const FEATURES = [
   },
 ]
 
-const STEPS = [
-  {
-    n: '01',
-    title: 'Crea il bot su BotFather',
-    desc: 'Apri Telegram, cerca @BotFather, scrivi /newbot e segui le istruzioni. Ti dà un token in 60 secondi.',
-  },
-  {
-    n: '02',
-    title: 'Incolla il token in TenantBot',
-    desc: 'Dalla dashboard, incolla il token e clicca "Attiva". TenantBot registra il webhook automaticamente.',
-  },
-  {
-    n: '03',
-    title: 'Aggiungi inquilini e contratti',
-    desc: 'Carica i PDF dei contratti, aggiungi gli inquilini. Il bot è pronto a rispondere.',
-  },
+// ─── Step Animations ─────────────────────────────────────────────────────────
+
+const BF_MSGS = [
+  { from: 'user', text: '/newbot' },
+  { from: 'bot',  text: 'Come si chiama il bot?' },
+  { from: 'user', text: 'Palazzi Milano Bot' },
+  { from: 'bot',  text: 'Username? (deve finire in Bot)' },
+  { from: 'user', text: 'palazzimilano_bot' },
+  { from: 'bot',  text: '✅ Fatto! Ecco il token:' },
+  { from: 'token', text: '7432156:AAHdqTcvCH1v…  📋' },
+] as const
+
+function BotFatherAnimation() {
+  const [visible, setVisible] = useState(0)
+  useEffect(() => {
+    const t = setTimeout(
+      () => setVisible((v) => (v >= BF_MSGS.length ? 0 : v + 1)),
+      visible >= BF_MSGS.length ? 2500 : 850,
+    )
+    return () => clearTimeout(t)
+  }, [visible])
+
+  return (
+    <div className="flex flex-col" style={{ height: 232 }}>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 shrink-0" style={{ background: '#2AABEE' }}>
+        <div
+          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+          style={{ background: '#1a96d4' }}
+        >
+          BF
+        </div>
+        <div>
+          <div className="text-white text-xs font-semibold leading-none">@BotFather</div>
+          <div className="text-white/70 text-[9px] leading-none mt-0.5">online</div>
+        </div>
+      </div>
+      {/* Messages */}
+      <div className="flex-1 overflow-hidden px-2 py-2 space-y-1.5" style={{ background: '#DAECF8' }}>
+        {BF_MSGS.slice(0, visible).map((msg, i) =>
+          msg.from === 'token' ? (
+            <div key={i} className="mx-2">
+              <div className="rounded-xl border border-yellow-300 bg-yellow-50 px-3 py-2 text-[10px] font-mono text-yellow-900 text-center shadow-sm">
+                {msg.text}
+              </div>
+            </div>
+          ) : (
+            <div key={i} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[78%] rounded-xl px-2.5 py-1.5 text-[11px] leading-snug shadow-sm ${
+                  msg.from === 'user' ? 'text-white rounded-tr-sm' : 'bg-white text-gray-800 rounded-tl-sm'
+                }`}
+                style={msg.from === 'user' ? { background: '#2AABEE' } : {}}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+    </div>
+  )
+}
+
+function OnboardingAnimation() {
+  const [phase, setPhase] = useState(0) // 0=idle 1=typed 2=activating 3=success
+  useEffect(() => {
+    const delays = [900, 950, 850, 2000]
+    const t = setTimeout(() => setPhase((p) => (p >= 3 ? 0 : p + 1)), delays[phase])
+    return () => clearTimeout(t)
+  }, [phase])
+
+  return (
+    <div className="bg-white flex flex-col justify-center px-4 py-5" style={{ height: 160 }}>
+      {phase === 3 ? (
+        <div className="text-center">
+          <div className="text-4xl mb-2">✅</div>
+          <div className="font-semibold text-gray-900 text-sm">Bot attivato!</div>
+          <div className="text-xs text-gray-400 mt-1">Pronto a rispondere agli inquilini</div>
+        </div>
+      ) : (
+        <>
+          <div className="text-[11px] font-medium text-gray-500 mb-1.5">Token Telegram</div>
+          <div
+            className={`rounded-lg border px-3 py-2 text-[11px] font-mono mb-3 transition-all duration-500 ${
+              phase === 0
+                ? 'border-gray-200 bg-gray-50 text-gray-300'
+                : 'border-brand-400 bg-brand-50 text-gray-700'
+            }`}
+          >
+            {phase === 0 ? 'Incolla il token qui…' : '7432156:AAHdqTcvCH1v…'}
+          </div>
+          <button
+            className={`w-full rounded-lg py-2 text-xs font-semibold transition-all ${
+              phase === 0 ? 'bg-gray-100 text-gray-400' : 'bg-brand-600 text-white'
+            }`}
+          >
+            {phase === 2 ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                Attivazione…
+              </span>
+            ) : (
+              'Attiva bot →'
+            )}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+const INQ_ROWS = [
+  { nome: 'Marco Rossi',   app: 'App. 2A', icon: '🟢', label: 'Collegato' },
+  { nome: 'Laura Bianchi', app: 'App. 3B', icon: '🟢', label: 'Collegato' },
+  { nome: 'Ahmed Hassan',  app: 'App. 1C', icon: '⏳', label: 'In attesa' },
 ]
+const CONT_ROWS = [
+  { nome: 'Contratto_Rossi.pdf',   chunks: '24 chunk' },
+  { nome: 'Contratto_Bianchi.pdf', chunks: '31 chunk' },
+]
+
+function DashboardAnimation() {
+  // 0=empty, 1-3=inq rows appear, 4=pause, 5=switch tab, 6-7=cont rows appear, 8=pause→reset
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    const delays = [350, 550, 550, 550, 1500, 300, 600, 600, 2000]
+    const t = setTimeout(() => setStep((s) => (s >= 8 ? 0 : s + 1)), delays[step] ?? 600)
+    return () => clearTimeout(t)
+  }, [step])
+
+  const activeTab = step >= 5 ? 'contratti' : 'inquilini'
+  const inqVisible = activeTab === 'inquilini' ? Math.min(step, 3) : 0
+  const contVisible = activeTab === 'contratti' ? Math.min(step - 5, 2) : 0
+
+  return (
+    <div className="bg-white flex flex-col" style={{ height: 200 }}>
+      {/* Tabs */}
+      <div className="flex border-b border-gray-100 px-3 pt-2.5 gap-4 shrink-0">
+        {(['inquilini', 'contratti'] as const).map((tab) => (
+          <span
+            key={tab}
+            className={`pb-2 text-[11px] font-medium transition-colors cursor-default select-none ${
+              activeTab === tab ? 'border-b-2 border-brand-500 text-brand-600' : 'text-gray-400'
+            }`}
+          >
+            {tab === 'inquilini' ? 'Inquilini' : 'Contratti'}
+          </span>
+        ))}
+      </div>
+      {/* Rows */}
+      <div className="flex-1 overflow-hidden px-3 pt-1">
+        {activeTab === 'inquilini'
+          ? INQ_ROWS.slice(0, inqVisible).map((r, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
+                <div>
+                  <div className="text-[11px] font-medium text-gray-800 leading-tight">{r.nome}</div>
+                  <div className="text-[10px] text-gray-400">{r.app}</div>
+                </div>
+                <span className="text-[10px] text-gray-500">{r.icon} {r.label}</span>
+              </div>
+            ))
+          : CONT_ROWS.slice(0, contVisible).map((r, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>📄</span>
+                  <div>
+                    <div className="text-[10px] font-medium text-gray-800 leading-tight">{r.nome}</div>
+                    <div className="text-[10px] text-gray-400">{r.chunks}</div>
+                  </div>
+                </div>
+                <span>✅</span>
+              </div>
+            ))}
+      </div>
+    </div>
+  )
+}
 
 const PLANS = [
   {
@@ -285,12 +446,12 @@ function ContactForm() {
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email?: string } | null>(null)
 
   useEffect(() => {
     if (!supabase) return
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session)
+      setUser(session?.user ?? null)
     })
   }, [])
 
@@ -310,13 +471,23 @@ export default function LandingPage() {
             <a href="#contact" className="hover:text-gray-900 transition-colors">Contatti</a>
           </div>
           <div className="flex items-center gap-3">
-            {isLoggedIn ? (
-              <a
-                href={`${ADMIN_URL}/dashboard`}
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
-              >
-                Vai alla dashboard →
-              </a>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none">
+                    {user.email?.[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <span className="text-sm text-gray-700 max-w-[160px] truncate hidden md:block">
+                    {user.email}
+                  </span>
+                </div>
+                <a
+                  href={`${ADMIN_URL}/dashboard`}
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  Dashboard →
+                </a>
+              </div>
             ) : (
               <>
                 <a
@@ -361,7 +532,7 @@ export default function LandingPage() {
                 risponde 24/7 su Telegram. Tu configuri una volta, lui lavora sempre.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                {isLoggedIn ? (
+                {user ? (
                   <a
                     href={`${ADMIN_URL}/dashboard`}
                     className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-7 py-3.5 text-base font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-200"
@@ -408,15 +579,43 @@ export default function LandingPage() {
           </p>
 
           <div className="grid sm:grid-cols-3 gap-8">
-            {STEPS.map((s) => (
-              <div key={s.n} className="relative">
-                <div className="text-5xl font-extrabold text-brand-700 mb-4 leading-none">
-                  {s.n}
-                </div>
-                <h3 className="font-semibold text-white text-lg mb-2">{s.title}</h3>
-                <p className="text-sm text-brand-300 leading-relaxed">{s.desc}</p>
+
+            {/* Step 01 — BotFather */}
+            <div className="flex flex-col">
+              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">01</div>
+              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
+                <BotFatherAnimation />
               </div>
-            ))}
+              <h3 className="font-semibold text-white text-lg mb-2">Crea il bot su BotFather</h3>
+              <p className="text-sm text-brand-300 leading-relaxed">
+                Apri Telegram, scrivi /newbot a @BotFather e copia il token che ti dà. Ci vogliono 60 secondi.
+              </p>
+            </div>
+
+            {/* Step 02 — Token paste */}
+            <div className="flex flex-col">
+              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">02</div>
+              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
+                <OnboardingAnimation />
+              </div>
+              <h3 className="font-semibold text-white text-lg mb-2">Incolla il token in TenantBot</h3>
+              <p className="text-sm text-brand-300 leading-relaxed">
+                Incolla il token nella dashboard TenantBot e clicca Attiva. Il bot è subito online.
+              </p>
+            </div>
+
+            {/* Step 03 — Dashboard */}
+            <div className="flex flex-col">
+              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">03</div>
+              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
+                <DashboardAnimation />
+              </div>
+              <h3 className="font-semibold text-white text-lg mb-2">Aggiungi inquilini e contratti</h3>
+              <p className="text-sm text-brand-300 leading-relaxed">
+                Aggiungi gli inquilini e carica i PDF dei contratti dalla dashboard. Il bot è pronto a rispondere.
+              </p>
+            </div>
+
           </div>
 
           <div className="mt-12 text-center">
