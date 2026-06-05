@@ -10,14 +10,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  // Verify Supabase JWT — any logged-in admin can trigger ingest
-  const jwt = req.headers.authorization?.replace('Bearer ', '')
-  if (!jwt) return res.status(401).json({ error: 'Unauthorized' })
-
-  const supabase = makeSupabase()
-  const { data: { user } } = await supabase.auth.getUser(jwt)
-  if (!user) return res.status(401).json({ error: 'Unauthorized' })
-
   const { contratto_id, tenant_id, testo } = req.body as {
     contratto_id?: string
     tenant_id?: string
@@ -31,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!voyageApiKey) return res.status(500).json({ error: 'VOYAGE_API_KEY mancante' })
 
   try {
+    const supabase = makeSupabase()
     const result = await ingestContratto({
       supabase,
       tenantId: tenant_id,
