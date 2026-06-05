@@ -6,6 +6,6 @@
     "api/ingest/**/*.ts": { "maxDuration": 60 },
     "api/stripe/**/*.ts": { "maxDuration": 15 },
     "api/setup/**/*.ts": { "maxDuration": 15 },
-    "api/admin/**/*.ts": { "maxDuration": 15 }
+    "api/admin/[action].ts": { "maxDuration": 60 }
   }
 }
