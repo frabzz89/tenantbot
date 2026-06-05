@@ -40,180 +40,413 @@ const FEATURES = [
 
 // ─── Step Animations ─────────────────────────────────────────────────────────
 
+// Step 01 — BotFather chat
 const BF_MSGS = [
   { from: 'user', text: '/newbot' },
   { from: 'bot',  text: 'Come si chiama il bot?' },
   { from: 'user', text: 'Palazzi Milano Bot' },
   { from: 'bot',  text: 'Username? (deve finire in Bot)' },
   { from: 'user', text: 'palazzimilano_bot' },
-  { from: 'bot',  text: '✅ Fatto! Ecco il token:' },
-  { from: 'token', text: '7432156:AAHdqTcvCH1v…  📋' },
+  { from: 'bot',  text: '✅ Fatto! Ecco il tuo token:' },
 ] as const
 
 function BotFatherAnimation() {
   const [visible, setVisible] = useState(0)
+  // visible 0-6: messages; visible 7: token box shown; then reset
   useEffect(() => {
     const t = setTimeout(
-      () => setVisible((v) => (v >= BF_MSGS.length ? 0 : v + 1)),
-      visible >= BF_MSGS.length ? 2500 : 850,
+      () => setVisible((v) => (v > BF_MSGS.length ? 0 : v + 1)),
+      visible > BF_MSGS.length ? 3000 : 850,
     )
     return () => clearTimeout(t)
   }, [visible])
 
+  const showToken = visible > BF_MSGS.length
+
   return (
-    <div className="flex flex-col" style={{ height: 232 }}>
+    <div className="flex flex-col" style={{ height: 380 }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 shrink-0" style={{ background: '#2AABEE' }}>
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: '#2AABEE' }}>
         <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
           style={{ background: '#1a96d4' }}
         >
           BF
         </div>
         <div>
-          <div className="text-white text-xs font-semibold leading-none">@BotFather</div>
-          <div className="text-white/70 text-[9px] leading-none mt-0.5">online</div>
+          <div className="text-white text-sm font-semibold leading-none">@BotFather</div>
+          <div className="text-white/70 text-[10px] leading-none mt-0.5">online</div>
         </div>
       </div>
       {/* Messages */}
-      <div className="flex-1 overflow-hidden px-2 py-2 space-y-1.5" style={{ background: '#DAECF8' }}>
-        {BF_MSGS.slice(0, visible).map((msg, i) =>
-          msg.from === 'token' ? (
-            <div key={i} className="mx-2">
-              <div className="rounded-xl border border-yellow-300 bg-yellow-50 px-3 py-2 text-[10px] font-mono text-yellow-900 text-center shadow-sm">
-                {msg.text}
-              </div>
+      <div className="flex-1 px-3 py-3 space-y-2 overflow-hidden" style={{ background: '#DAECF8' }}>
+        {BF_MSGS.slice(0, visible).map((msg, i) => (
+          <div key={i} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-snug shadow-sm ${
+                msg.from === 'user' ? 'text-white rounded-tr-sm' : 'bg-white text-gray-800 rounded-tl-sm'
+              }`}
+              style={msg.from === 'user' ? { background: '#2AABEE' } : {}}
+            >
+              {msg.text}
             </div>
-          ) : (
-            <div key={i} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[78%] rounded-xl px-2.5 py-1.5 text-[11px] leading-snug shadow-sm ${
-                  msg.from === 'user' ? 'text-white rounded-tr-sm' : 'bg-white text-gray-800 rounded-tl-sm'
-                }`}
-                style={msg.from === 'user' ? { background: '#2AABEE' } : {}}
-              >
-                {msg.text}
-              </div>
+          </div>
+        ))}
+
+        {/* Token copy box */}
+        {showToken && (
+          <div className="bg-white rounded-2xl rounded-tl-sm shadow-sm px-3 py-3 max-w-[90%]">
+            <div className="text-[10px] text-gray-500 mb-1.5">🔑 Token del tuo bot:</div>
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-300 rounded-xl px-3 py-2">
+              <code className="flex-1 text-[11px] font-mono text-yellow-900 truncate">
+                7432156:AAHdqTcvCH1vGbR...
+              </code>
+              <button className="flex items-center gap-1 text-[10px] bg-white border border-yellow-300 rounded-lg px-2 py-1 text-yellow-800 shrink-0 font-medium">
+                📋 Copia
+              </button>
             </div>
-          ),
+          </div>
         )}
       </div>
     </div>
   )
 }
 
+// Step 02 — Onboarding "Configura il bot" (faithful to real UI)
 function OnboardingAnimation() {
   const [phase, setPhase] = useState(0) // 0=idle 1=typed 2=activating 3=success
   useEffect(() => {
-    const delays = [900, 950, 850, 2000]
+    const delays = [1200, 1100, 900, 2200]
     const t = setTimeout(() => setPhase((p) => (p >= 3 ? 0 : p + 1)), delays[phase])
     return () => clearTimeout(t)
   }, [phase])
 
   return (
-    <div className="bg-white flex flex-col justify-center px-4 py-5" style={{ height: 160 }}>
+    <div className="bg-gray-50 p-5 flex flex-col" style={{ height: 460 }}>
       {phase === 3 ? (
-        <div className="text-center">
-          <div className="text-4xl mb-2">✅</div>
-          <div className="font-semibold text-gray-900 text-sm">Bot attivato!</div>
-          <div className="text-xs text-gray-400 mt-1">Pronto a rispondere agli inquilini</div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div className="text-5xl mb-4">✅</div>
+          <div className="font-bold text-gray-900 text-lg mb-1">Bot attivato!</div>
+          <div className="text-sm text-gray-500">Il tuo bot è online e pronto a rispondere agli inquilini.</div>
         </div>
       ) : (
-        <>
-          <div className="text-[11px] font-medium text-gray-500 mb-1.5">Token Telegram</div>
-          <div
-            className={`rounded-lg border px-3 py-2 text-[11px] font-mono mb-3 transition-all duration-500 ${
-              phase === 0
-                ? 'border-gray-200 bg-gray-50 text-gray-300'
-                : 'border-brand-400 bg-brand-50 text-gray-700'
-            }`}
-          >
-            {phase === 0 ? 'Incolla il token qui…' : '7432156:AAHdqTcvCH1v…'}
+        <div className="bg-white rounded-2xl shadow-sm px-5 py-4 flex flex-col gap-3.5">
+          {/* Title */}
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-lg">🤖</span>
+              <h3 className="font-bold text-gray-900">Configura il bot</h3>
+            </div>
+            <p className="text-xs text-gray-500">Hai bisogno del telefono con Telegram — ci vogliono circa 2 minuti.</p>
           </div>
-          <button
-            className={`w-full rounded-lg py-2 text-xs font-semibold transition-all ${
-              phase === 0 ? 'bg-gray-100 text-gray-400' : 'bg-brand-600 text-white'
-            }`}
-          >
-            {phase === 2 ? (
-              <span className="flex items-center justify-center gap-1.5">
-                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                Attivazione…
-              </span>
-            ) : (
-              'Attiva bot →'
-            )}
-          </button>
-        </>
+
+          {/* Channel tabs */}
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center justify-center gap-1.5 border-2 border-brand-500 bg-brand-50 text-brand-700 rounded-xl py-2 text-sm font-medium">
+              <TelegramIcon size={15} />
+              Telegram
+            </div>
+            <div className="flex-1 relative">
+              <div className="w-full flex items-center justify-center gap-1.5 border border-gray-200 text-gray-400 rounded-xl py-2 text-sm font-medium opacity-70">
+                <span className="leading-none">📱</span>
+                WhatsApp
+              </div>
+              <span className="absolute -top-2 right-2 text-[9px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">Presto</span>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div className="bg-brand-50 border border-brand-200 rounded-xl p-3">
+            <div className="text-[11px] font-semibold text-brand-700 mb-2">Come creare il bot (una volta sola):</div>
+            <ol className="space-y-1 text-[11px] text-brand-700">
+              <li>1. Apri Telegram sul telefono</li>
+              <li>2. Cerca <strong>@BotFather</strong> e aprilo</li>
+              <li>3. Invia il comando: <code className="bg-brand-100 px-1 rounded text-[10px]">/newbot</code></li>
+              <li>4. Scegli un nome (es. <em>"Palazzo Rossi Assistente"</em>) e uno username che finisce in "bot"</li>
+              <li>5. BotFather ti darà un token — copialo e incollalo qui sotto</li>
+            </ol>
+            <button className="mt-2.5 flex items-center gap-1.5 border border-brand-300 rounded-lg px-2.5 py-1.5 text-[11px] text-brand-600 font-medium bg-white">
+              <span className="text-xs">↗</span>
+              Apri @BotFather in Telegram
+            </button>
+          </div>
+
+          {/* Token input */}
+          <div>
+            <div className="text-xs font-medium text-gray-700 mb-1.5">Token del bot *</div>
+            <div
+              className={`border rounded-xl px-3 py-2.5 text-xs font-mono transition-all duration-500 ${
+                phase === 0
+                  ? 'border-gray-200 text-gray-400'
+                  : 'border-brand-400 text-gray-800'
+              }`}
+            >
+              {phase === 0 ? '1234567890:ABCdefGhIjKlmn...' : '7432156:AAHdqTcvCH1vGbR...'}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button className="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium">
+              Indietro
+            </button>
+            <button
+              className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                phase === 0 ? 'bg-gray-200 text-gray-400' : 'bg-brand-600 text-white'
+              }`}
+            >
+              {phase === 2 ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                  Attivazione…
+                </span>
+              ) : (
+                'Attiva bot →'
+              )}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
 }
 
-const INQ_ROWS = [
-  { nome: 'Marco Rossi',   app: 'App. 2A', icon: '🟢', label: 'Collegato' },
-  { nome: 'Laura Bianchi', app: 'App. 3B', icon: '🟢', label: 'Collegato' },
-  { nome: 'Ahmed Hassan',  app: 'App. 1C', icon: '⏳', label: 'In attesa' },
+// Step 03 — Dashboard with sidebar (faithful to real UI)
+const DASH_INQ_ROWS = [
+  { nome: 'Buzzi Francesco', tel: '+393491301128', unita: 'Int. 3A — Palazzaccio', tg: true },
+  { nome: 'Marco Rossi',     tel: '+393401234567', unita: 'App. 2B — Palazzaccio', tg: true },
+  { nome: 'Laura Bianchi',   tel: '+393409876543', unita: 'App. 3A — Palazzaccio', tg: false },
 ]
-const CONT_ROWS = [
-  { nome: 'Contratto_Rossi.pdf',   chunks: '24 chunk' },
-  { nome: 'Contratto_Bianchi.pdf', chunks: '31 chunk' },
+const DASH_CONT_ROWS = [
+  { inq: 'Buzzi Francesco', unita: 'Palazzaccio / Int. 3A', canone: '€1.500/mese', scadenza: '01/01/2029', chunks: '7 chunk' },
+  { inq: 'Marco Rossi',     unita: 'Palazzaccio / App. 2B', canone: '€1.200/mese', scadenza: '30/06/2026', chunks: '12 chunk' },
+]
+const DASH_NAV = [
+  { icon: '🏠', label: 'Dashboard' },
+  { icon: '📋', label: 'Palazzine' },
+  { icon: '🏢', label: 'Unità' },
+  { icon: '👥', label: 'Inquilini' },
+  { icon: '📄', label: 'Contratti' },
+  { icon: '📚', label: 'Knowledge Base' },
+  { icon: '🔧', label: 'Ticket' },
+  { icon: '📢', label: 'Broadcast' },
+  { icon: '🤖', label: 'Bot Config' },
 ]
 
 function DashboardAnimation() {
-  // 0=empty, 1-3=inq rows appear, 4=pause, 5=switch tab, 6-7=cont rows appear, 8=pause→reset
+  // 0=empty, 1-3=inq rows, 4=pause, 5=switch nav, 6-7=cont rows, 8=pause→reset
   const [step, setStep] = useState(0)
   useEffect(() => {
-    const delays = [350, 550, 550, 550, 1500, 300, 600, 600, 2000]
+    const delays = [350, 600, 600, 600, 1500, 300, 700, 700, 2000]
     const t = setTimeout(() => setStep((s) => (s >= 8 ? 0 : s + 1)), delays[step] ?? 600)
     return () => clearTimeout(t)
   }, [step])
 
-  const activeTab = step >= 5 ? 'contratti' : 'inquilini'
-  const inqVisible = activeTab === 'inquilini' ? Math.min(step, 3) : 0
-  const contVisible = activeTab === 'contratti' ? Math.min(step - 5, 2) : 0
+  const activeNav = step >= 5 ? 'Contratti' : 'Inquilini'
+  const inqVisible = activeNav === 'Inquilini' ? Math.min(step, 3) : 0
+  const contVisible = activeNav === 'Contratti' ? Math.min(step - 5, 2) : 0
 
   return (
-    <div className="bg-white flex flex-col" style={{ height: 200 }}>
-      {/* Tabs */}
-      <div className="flex border-b border-gray-100 px-3 pt-2.5 gap-4 shrink-0">
-        {(['inquilini', 'contratti'] as const).map((tab) => (
-          <span
-            key={tab}
-            className={`pb-2 text-[11px] font-medium transition-colors cursor-default select-none ${
-              activeTab === tab ? 'border-b-2 border-brand-500 text-brand-600' : 'text-gray-400'
-            }`}
-          >
-            {tab === 'inquilini' ? 'Inquilini' : 'Contratti'}
-          </span>
-        ))}
+    <div className="flex" style={{ height: 420 }}>
+      {/* Sidebar */}
+      <div className="w-44 bg-white border-r border-gray-100 flex flex-col px-3 pt-4 pb-3 shrink-0 overflow-hidden">
+        <div className="font-extrabold text-brand-700 text-sm leading-none mb-0.5">TenantBot</div>
+        <div className="text-[10px] text-gray-500 mb-2 truncate">Amministrazione Sartorelli</div>
+        <span className="text-[9px] bg-brand-100 text-brand-700 rounded px-1.5 py-0.5 font-bold mb-4 self-start">
+          STARTER
+        </span>
+        <div className="space-y-0.5 flex-1">
+          {DASH_NAV.map(({ icon, label }) => (
+            <div
+              key={label}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] transition-colors ${
+                label === activeNav
+                  ? 'bg-brand-50 text-brand-700 font-semibold'
+                  : 'text-gray-500'
+              }`}
+            >
+              <span className="text-sm leading-none shrink-0">{icon}</span>
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
-      {/* Rows */}
-      <div className="flex-1 overflow-hidden px-3 pt-1">
-        {activeTab === 'inquilini'
-          ? INQ_ROWS.slice(0, inqVisible).map((r, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
-                <div>
-                  <div className="text-[11px] font-medium text-gray-800 leading-tight">{r.nome}</div>
-                  <div className="text-[10px] text-gray-400">{r.app}</div>
-                </div>
-                <span className="text-[10px] text-gray-500">{r.icon} {r.label}</span>
+
+      {/* Main content */}
+      <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden">
+        {activeNav === 'Inquilini' ? (
+          <>
+            {/* Header */}
+            <div className="flex items-start justify-between px-4 pt-4 pb-3 bg-white border-b border-gray-100 shrink-0">
+              <div>
+                <div className="font-bold text-gray-900 text-base leading-tight">Inquilini</div>
+                <div className="text-[11px] text-gray-500 mt-0.5">Gestisci gli inquilini e il loro collegamento al bot</div>
               </div>
-            ))
-          : CONT_ROWS.slice(0, contVisible).map((r, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>📄</span>
-                  <div>
-                    <div className="text-[10px] font-medium text-gray-800 leading-tight">{r.nome}</div>
-                    <div className="text-[10px] text-gray-400">{r.chunks}</div>
+              <div className="bg-brand-600 text-white text-[10px] font-semibold rounded-lg px-2.5 py-1.5 shrink-0 whitespace-nowrap ml-2">
+                + Nuovo inquilino
+              </div>
+            </div>
+            {/* Table */}
+            <div className="flex-1 overflow-hidden px-3 pt-2.5">
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <div className="grid px-3 py-2 border-b border-gray-100 text-[9px] font-semibold text-gray-400 uppercase tracking-wide"
+                     style={{ gridTemplateColumns: '1.5fr 1.2fr 1.5fr 0.8fr 0.6fr' }}>
+                  <span>Nominativo</span>
+                  <span>Telefono</span>
+                  <span>Unità</span>
+                  <span>Telegram</span>
+                  <span>Stato</span>
+                </div>
+                {DASH_INQ_ROWS.slice(0, inqVisible).map((r, i) => (
+                  <div key={i} className="grid px-3 py-2.5 border-b border-gray-50 items-center"
+                       style={{ gridTemplateColumns: '1.5fr 1.2fr 1.5fr 0.8fr 0.6fr' }}>
+                    <span className="text-xs font-semibold text-gray-900 truncate pr-1">{r.nome}</span>
+                    <span className="text-[10px] text-gray-500 truncate">{r.tel}</span>
+                    <span className="text-[10px] text-gray-500 truncate pr-1">{r.unita}</span>
+                    <span>
+                      {r.tg
+                        ? <span className="text-[9px] bg-green-100 text-green-700 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">Collegato</span>
+                        : <span className="text-[9px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5 whitespace-nowrap">Non coll.</span>}
+                    </span>
+                    <span className="text-[9px] bg-green-100 text-green-700 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">Attivo</span>
                   </div>
-                </div>
-                <span>✅</span>
+                ))}
               </div>
-            ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-start justify-between px-4 pt-4 pb-3 bg-white border-b border-gray-100 shrink-0">
+              <div>
+                <div className="font-bold text-gray-900 text-base leading-tight">Contratti</div>
+                <div className="text-[11px] text-gray-500 mt-0.5">Gestisci i contratti di locazione e gli embeddings RAG</div>
+              </div>
+              <div className="bg-brand-600 text-white text-[10px] font-semibold rounded-lg px-2.5 py-1.5 shrink-0 whitespace-nowrap ml-2">
+                + Nuovo contratto
+              </div>
+            </div>
+            {/* Table */}
+            <div className="flex-1 overflow-hidden px-3 pt-2.5">
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <div className="grid px-3 py-2 border-b border-gray-100 text-[9px] font-semibold text-gray-400 uppercase tracking-wide"
+                     style={{ gridTemplateColumns: '1.2fr 1.4fr 1fr 0.9fr 0.7fr 0.6fr' }}>
+                  <span>Inquilino</span>
+                  <span>Unità</span>
+                  <span>Canone</span>
+                  <span>Scadenza</span>
+                  <span>PDF/Emb.</span>
+                  <span>Stato</span>
+                </div>
+                {DASH_CONT_ROWS.slice(0, contVisible).map((r, i) => (
+                  <div key={i} className="grid px-3 py-2.5 border-b border-gray-50 items-center"
+                       style={{ gridTemplateColumns: '1.2fr 1.4fr 1fr 0.9fr 0.7fr 0.6fr' }}>
+                    <span className="text-xs font-semibold text-gray-900 truncate pr-1">{r.inq}</span>
+                    <span className="text-[10px] text-gray-500 truncate pr-1">{r.unita}</span>
+                    <span className="text-[10px] text-gray-700 font-medium">{r.canone}</span>
+                    <span className="text-[10px] text-gray-500">{r.scadenza}</span>
+                    <span className="text-[9px] bg-brand-100 text-brand-700 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">{r.chunks}</span>
+                    <span className="text-[9px] bg-green-100 text-green-700 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">Attivo</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+// ─── How It Works Section (clickable steps) ──────────────────────────────────
+
+const STEP_META = [
+  {
+    n: 1,
+    label: 'Crea il bot su BotFather',
+    desc: 'Apri Telegram, scrivi /newbot a @BotFather e copia il token che ti dà. Ci vogliono 60 secondi.',
+  },
+  {
+    n: 2,
+    label: 'Incolla il token in TenantBot',
+    desc: 'Incolla il token nella dashboard TenantBot e clicca Attiva. Il bot è subito online.',
+  },
+  {
+    n: 3,
+    label: 'Aggiungi inquilini e contratti',
+    desc: 'Aggiungi gli inquilini e carica i PDF dei contratti dalla dashboard. Il bot è pronto a rispondere.',
+  },
+]
+
+function HowItWorks() {
+  const [activeStep, setActiveStep] = useState(1)
+  const step = STEP_META.find((s) => s.n === activeStep)!
+
+  return (
+    <section id="how" className="py-24 bg-brand-900">
+      <div className="mx-auto max-w-5xl px-6">
+        {/* Heading */}
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <TelegramIcon size={32} />
+          <h2 className="text-3xl font-bold text-white">Come funziona</h2>
+        </div>
+        <p className="text-center text-brand-300 mb-10 text-base">
+          Configurazione completa in meno di 10 minuti, direttamente su Telegram.
+        </p>
+
+        {/* Step selector */}
+        <div className="grid grid-cols-3 gap-3 mb-8 max-w-2xl mx-auto">
+          {STEP_META.map((s) => (
+            <button
+              key={s.n}
+              onClick={() => setActiveStep(s.n)}
+              className={`text-left rounded-2xl px-4 py-4 transition-all ${
+                activeStep === s.n
+                  ? 'bg-white shadow-xl ring-2 ring-white/20'
+                  : 'bg-brand-800 hover:bg-brand-700'
+              }`}
+            >
+              <div
+                className={`text-4xl font-extrabold leading-none mb-2 ${
+                  activeStep === s.n ? 'text-brand-600' : 'text-brand-600/40'
+                }`}
+              >
+                {String(s.n).padStart(2, '0')}
+              </div>
+              <div
+                className={`text-xs font-medium leading-snug ${
+                  activeStep === s.n ? 'text-gray-900' : 'text-brand-300'
+                }`}
+              >
+                {s.label}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Active animation frame */}
+        <div className="rounded-2xl overflow-hidden shadow-2xl max-w-2xl mx-auto">
+          {activeStep === 1 && <BotFatherAnimation />}
+          {activeStep === 2 && <OnboardingAnimation />}
+          {activeStep === 3 && <DashboardAnimation />}
+        </div>
+
+        {/* Step description */}
+        <p className="text-center text-brand-300 mt-6 max-w-xl mx-auto text-sm leading-relaxed">
+          {step.desc}
+        </p>
+
+        <div className="mt-10 text-center">
+          <a
+            href={`${ADMIN_URL}/signup`}
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-bold text-brand-700 hover:bg-brand-50 transition-colors"
+          >
+            <TelegramIcon size={18} />
+            Configura il bot Telegram ora
+          </a>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -568,67 +801,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Come funziona ─────────────────────────────────────────────────── */}
-      <section id="how" className="py-24 bg-brand-900">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <TelegramIcon size={32} />
-            <h2 className="text-3xl font-bold text-white">Come funziona</h2>
-          </div>
-          <p className="text-center text-brand-300 mb-14 text-base">
-            Configurazione completa in meno di 10 minuti, direttamente su Telegram.
-          </p>
-
-          <div className="grid sm:grid-cols-3 gap-8">
-
-            {/* Step 01 — BotFather */}
-            <div className="flex flex-col">
-              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">01</div>
-              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
-                <BotFatherAnimation />
-              </div>
-              <h3 className="font-semibold text-white text-lg mb-2">Crea il bot su BotFather</h3>
-              <p className="text-sm text-brand-300 leading-relaxed">
-                Apri Telegram, scrivi /newbot a @BotFather e copia il token che ti dà. Ci vogliono 60 secondi.
-              </p>
-            </div>
-
-            {/* Step 02 — Token paste */}
-            <div className="flex flex-col">
-              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">02</div>
-              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
-                <OnboardingAnimation />
-              </div>
-              <h3 className="font-semibold text-white text-lg mb-2">Incolla il token in TenantBot</h3>
-              <p className="text-sm text-brand-300 leading-relaxed">
-                Incolla il token nella dashboard TenantBot e clicca Attiva. Il bot è subito online.
-              </p>
-            </div>
-
-            {/* Step 03 — Dashboard */}
-            <div className="flex flex-col">
-              <div className="text-5xl font-extrabold text-brand-700 mb-3 leading-none">03</div>
-              <div className="rounded-2xl overflow-hidden mb-5 shadow-xl">
-                <DashboardAnimation />
-              </div>
-              <h3 className="font-semibold text-white text-lg mb-2">Aggiungi inquilini e contratti</h3>
-              <p className="text-sm text-brand-300 leading-relaxed">
-                Aggiungi gli inquilini e carica i PDF dei contratti dalla dashboard. Il bot è pronto a rispondere.
-              </p>
-            </div>
-
-          </div>
-
-          <div className="mt-12 text-center">
-            <a
-              href={`${ADMIN_URL}/signup`}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-bold text-brand-700 hover:bg-brand-50 transition-colors"
-            >
-              <TelegramIcon size={18} />
-              Configura il bot Telegram ora
-            </a>
-          </div>
-        </div>
-      </section>
+      <HowItWorks />
 
       {/* ── Features ──────────────────────────────────────────────────────── */}
       <section id="features" className="py-24 bg-gray-50">
