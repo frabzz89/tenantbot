@@ -1,13 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: oklch(0.97 0.02 250);
-  --color-brand-100: oklch(0.93 0.05 250);
-  --color-brand-500: oklch(0.53 0.18 250);
-  --color-brand-600: oklch(0.44 0.17 250);
-  --color-brand-700: oklch(0.36 0.15 250);
-  --font-sans: system-ui, sans-serif;
+  /* Brand: deep navy-blue — high contrast, accessible on white */
+  --color-brand-50:  oklch(0.97 0.012 250);
+  --color-brand-100: oklch(0.93 0.035 250);
+  --color-brand-200: oklch(0.86 0.07  250);
+  --color-brand-300: oklch(0.76 0.11  250);
+  --color-brand-400: oklch(0.63 0.15  250);
+  --color-brand-500: oklch(0.52 0.18  250);
+  --color-brand-600: oklch(0.43 0.18  250);
+  --color-brand-700: oklch(0.35 0.16  250);
+  --color-brand-800: oklch(0.27 0.13  250);
+  --color-brand-900: oklch(0.20 0.10  250);
+
+  /* Telegram blue for the chat demo */
+  --color-tg: #2AABEE;
+  --color-tg-dark: #1a96d4;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* smooth scroll for anchor links */
+html { scroll-behavior: smooth; }
