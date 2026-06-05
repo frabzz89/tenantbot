@@ -213,13 +213,13 @@ function OnboardingAnimation() {
 
 // Step 03 — Dashboard with sidebar (faithful to real UI)
 const DASH_INQ_ROWS = [
-  { nome: 'Buzzi Francesco', tel: '+393491301128', unita: 'Int. 3A — Palazzaccio', tg: true },
-  { nome: 'Marco Rossi',     tel: '+393401234567', unita: 'App. 2B — Palazzaccio', tg: true },
-  { nome: 'Laura Bianchi',   tel: '+393409876543', unita: 'App. 3A — Palazzaccio', tg: false },
+  { nome: 'Marco Rossi',   tel: '+393401234567', unita: 'Int. 3A — Palazzaccio', tg: true },
+  { nome: 'Laura Bianchi', tel: '+393409876543', unita: 'App. 2B — Palazzaccio', tg: true },
+  { nome: 'Ahmed Hassan',  tel: '+393412345678', unita: 'App. 3A — Palazzaccio', tg: false },
 ]
 const DASH_CONT_ROWS = [
-  { inq: 'Buzzi Francesco', unita: 'Palazzaccio / Int. 3A', canone: '€1.500/mese', scadenza: '01/01/2029', chunks: '7 chunk' },
-  { inq: 'Marco Rossi',     unita: 'Palazzaccio / App. 2B', canone: '€1.200/mese', scadenza: '30/06/2026', chunks: '12 chunk' },
+  { inq: 'Marco Rossi',   unita: 'Palazzaccio / Int. 3A', canone: '€1.500/mese', scadenza: '01/01/2029', chunks: '7 chunk' },
+  { inq: 'Laura Bianchi', unita: 'Palazzaccio / App. 2B', canone: '€1.200/mese', scadenza: '30/06/2026', chunks: '12 chunk' },
 ]
 const DASH_NAV = [
   { icon: '🏠', label: 'Dashboard' },
