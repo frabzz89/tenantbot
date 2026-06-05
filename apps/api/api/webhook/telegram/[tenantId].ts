@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ── Load bot configuration ───────────────────────────────────────────────
     const config = await loadBotConfig(tenantId, 'telegram')
+    console.log(`[tg-wh] tenant=${tenantId} config_ok=${!!config}`)
     if (!config) {
       console.warn(`[telegram-webhook] config non trovata per tenant=${tenantId}`)
       return
@@ -52,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       return
     }
+    console.log(`[tg-wh] secret ok`)
 
     // ── Parse the incoming update ────────────────────────────────────────────
     const botConfig = {
@@ -71,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = req.body
 
     const chatId = adapter.extractChatId(body)
+    console.log(`[tg-wh] chatId=${chatId} body_keys=${Object.keys(body ?? {}).join(',')}`)
     if (!chatId) {
       // Non-message update (callback_query, edited_message, etc.) — ignore silently
       return
@@ -78,12 +81,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     chatIdForFallback = chatId
 
     const message = adapter.parseMessage(body)
+    console.log(`[tg-wh] message parsed: isCmd=${message?.isCommand} cmd=${message?.command} text_len=${message?.text?.length ?? 0}`)
     if (!message) {
       // Message with no text/contact (photo, sticker, etc.) — ignore silently
       return
     }
 
     // ── Run the bot engine ───────────────────────────────────────────────────
+    console.log(`[tg-wh] calling engine for sender=${message.senderId}`)
     const supabase = makeSupabase()
     const engine = new BotEngine({
       supabase,
@@ -97,6 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     await engine.handleMessage(message, chatId)
+    console.log(`[tg-wh] engine.handleMessage complete`)
 
   } catch (err) {
     console.error(`[telegram-webhook] unhandled error tenant=${tenantId}:`, err)
