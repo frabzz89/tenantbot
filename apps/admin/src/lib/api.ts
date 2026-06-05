@@ -34,6 +34,24 @@ export async function ingestKbDocumento(documentoId: string, tenantId: string, t
   return res.json() as Promise<{ ok: boolean; chunks?: number; source?: string; error?: string }>
 }
 
+export async function sendBroadcast(
+  tenantId: string,
+  contenuto_it: string,
+  contenuto_en?: string,
+  proprieta_id?: string,
+) {
+  const token = await getAuthToken()
+  const res = await fetch(`${API_URL}/api/admin/broadcast`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ tenant_id: tenantId, contenuto_it, contenuto_en, proprieta_id }),
+  })
+  return res.json() as Promise<{ ok: boolean; sent_count?: number; error?: string }>
+}
+
 export async function createTenant(userId: string, nome: string, email: string) {
   const res = await fetch(`${API_URL}/api/admin/tenant`, {
     method: 'POST',

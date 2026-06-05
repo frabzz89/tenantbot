@@ -15,6 +15,7 @@ import { TicketPage } from './pages/admin/TicketPage'
 import { BotConfigPage } from './pages/admin/BotConfigPage'
 import { UnitaPage } from './pages/admin/UnitaPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
+import { BroadcastPage } from './pages/admin/BroadcastPage'
 
 export default function App() {
   return (
@@ -69,13 +70,3 @@ function BillingPage() {
   )
 }
 
-function BroadcastPage() {
-  return (
-    <div className="p-8">
-      <h1 className="text-xl font-semibold mb-4">Broadcast</h1>
-      <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
-        Invia comunicazioni a tutti gli inquilini o a una proprietà specifica.
-      </div>
-    </div>
-  )
-}
