@@ -5,7 +5,14 @@
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@tenantbot/core": ["../../packages/core/src/index.ts"],
+      "@tenantbot/core/*": ["../../packages/core/src/*"],
+      "@tenantbot/db": ["../../packages/db/src/index.ts"],
+      "@tenantbot/db/*": ["../../packages/db/src/*"]
+    }
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist"]
