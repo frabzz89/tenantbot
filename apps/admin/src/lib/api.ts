@@ -49,7 +49,11 @@ export async function sendBroadcast(
     },
     body: JSON.stringify({ tenant_id: tenantId, contenuto_it, contenuto_en, proprieta_id }),
   })
-  return res.json() as Promise<{ ok: boolean; sent_count?: number; error?: string }>
+  try {
+    return (await res.json()) as { ok: boolean; sent_count?: number; error?: string }
+  } catch {
+    return { ok: false as const, error: `Errore server (HTTP ${res.status}). Riprova tra qualche secondo.` }
+  }
 }
 
 export async function createTenant(userId: string, nome: string, email: string) {

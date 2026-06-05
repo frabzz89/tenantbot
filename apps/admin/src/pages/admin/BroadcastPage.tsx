@@ -79,8 +79,9 @@ export function BroadcastPage() {
         setProprietaId('')
         load()
       }
-    } catch {
-      toast.error('Errore di rete. Riprova.')
+    } catch (e) {
+      console.error('[broadcast] send error:', e)
+      toast.error('Errore di rete. Controlla la connessione e riprova.')
     } finally {
       setSending(false)
     }
