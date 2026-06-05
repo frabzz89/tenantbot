@@ -47,7 +47,7 @@ const STEPS = [
   {
     n: '02',
     title: 'Incolla il token in TenantBot',
-    desc: "Dalla dashboard, incolla il token e clicca "Attiva". TenantBot registra il webhook automaticamente.",
+    desc: 'Dalla dashboard, incolla il token e clicca "Attiva". TenantBot registra il webhook automaticamente.',
   },
   {
     n: '03',
